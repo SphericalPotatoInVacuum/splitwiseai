@@ -5,8 +5,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/url"
-	"strconv"
-	"strings"
 )
 
 func generateSalt() (string, error) {
@@ -26,15 +24,15 @@ func makeState(telegramId int64) (string, error) {
 }
 
 func parseState(state string) (int64, string, error) {
-	parts := strings.Split(state, ":")
-	if len(parts) != 2 {
-		return -1, "", fmt.Errorf("invalid state")
-	}
-	telegramId, err := strconv.ParseInt(parts[0], 10, 64)
+	var telegramId int64
+	var salt string
+	n, err := fmt.Sscanf(state, "%d:%s", &telegramId, &salt)
 	if err != nil {
 		return -1, "", err
 	}
-	salt := parts[1]
+	if n != 2 {
+		return -1, "", fmt.Errorf("invalid state format")
+	}
 	return telegramId, salt, nil
 }
 
