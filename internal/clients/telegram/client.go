@@ -2,6 +2,7 @@ package telegram
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"splitwiseai/internal/clients/db/tokensdb"
 	"splitwiseai/internal/clients/db/usersdb"
@@ -70,6 +71,8 @@ func NewClient(cfg Config, deps *BotDeps) (Client, error) {
 	dispatcher.AddHandler(handlers.NewCommand("set_currency", client.setCurrency))
 	dispatcher.AddHandler(handlers.NewCommand("get_groups", client.getGroups))
 
+	dispatcher.AddHandler(handlers.NewMessage(newMessageFilter, client.newMessage))
+
 	dispatcher.AddHandlerToGroup(handlers.NewMessage(filterUserUpdates, client.postprocess), 1000)
 
 	return client, nil
@@ -127,6 +130,12 @@ func (c *client) postprocess(b *gotgbot.Bot, ctx *ext.Context) error {
 
 	if !userDirty {
 		return nil
+	}
+
+	if user.Authorized && user.Currency != "" {
+		user.State = usersdb.Ready.String()
+	} else {
+		user.State = usersdb.IncompleteProfile.String()
 	}
 
 	_, err := c.deps.UsersDb.UpdateUser(context.Background(), user)
@@ -292,9 +301,47 @@ func (c *client) authorize(b *gotgbot.Bot, ctx *ext.Context) error {
 func (c *client) newMessage(b *gotgbot.Bot, ctx *ext.Context) error {
 	user := ctx.Data["user"].(*usersdb.User)
 
-	if user.State != usersdb.Ready.String() {
-		b.SendMessage(ctx.EffectiveChat.Id, "Вы не готовы.\n"+c.makeUserProfileString(user), &gotgbot.SendMessageOpts{})
+	if !user.Authorized {
+		b.SendMessage(ctx.EffectiveChat.Id, "Вы не авторизованы", &gotgbot.SendMessageOpts{})
 		return nil
+	}
+
+	if user.State == usersdb.Ready.String() {
+		photos := ctx.EffectiveMessage.Photo
+		if photos == nil {
+			b.SendMessage(ctx.EffectiveChat.Id, "Пришлите фото чека", &gotgbot.SendMessageOpts{})
+			return nil
+		}
+
+		photoFile, err := b.GetFile(photos[len(photos)-1].FileId, &gotgbot.GetFileOpts{})
+		if err != nil {
+			return fmt.Errorf("failed to get file: %w", err)
+		}
+
+		photoUrl := photoFile.URL(b, &gotgbot.RequestOpts{})
+
+		b.SendMessage(ctx.EffectiveChat.Id, "Обрабатываю чек...", &gotgbot.SendMessageOpts{})
+
+		predictions, err := c.deps.Mindee.GetPredictions(photoUrl)
+		if err != nil {
+			return fmt.Errorf("failed to get predictions: %w", err)
+		}
+
+		textBytes, err := json.MarshalIndent(predictions, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal predictions: %w", err)
+		}
+
+		_, err = b.SendMessage(
+			ctx.EffectiveChat.Id,
+			fmt.Sprintf("<pre><code class=\"language-json\">%s</code></pre>", string(textBytes)),
+			&gotgbot.SendMessageOpts{
+				ParseMode: "HTML",
+			},
+		)
+		if err != nil {
+			return fmt.Errorf("failed to send message: %w", err)
+		}
 	}
 
 	return nil

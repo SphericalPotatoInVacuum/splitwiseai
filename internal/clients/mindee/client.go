@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"mime/multipart"
 	"net/http"
-	"os"
 
 	"splitwiseai/internal/clients/mindee/mindeeapi"
+
+	"go.uber.org/zap"
 )
 
 type Config struct {
@@ -37,24 +37,17 @@ func NewClient(cfg Config) (Client, error) {
 	return &client{mindeeClient: mindeeClient}, nil
 }
 
-func (c *client) GetPredictions(filename string) (*mindeeapi.MindeeExpenseReceipts5DocPrediction, error) {
+func (c *client) GetPredictions(photoUrl string) (*Cheque, error) {
 	var requestBody bytes.Buffer
 	multipartWriter := multipart.NewWriter(&requestBody)
 
-	// Depending on the type of the document, you'll handle it differently.
-	// Here's how you might handle a file object:
-	file, err := os.Open("test.jpg")
-	if err != nil {
-		return nil, fmt.Errorf("failed to open file: %w", err)
-	}
-	defer file.Close()
-	fileWriter, err := multipartWriter.CreateFormFile("document", file.Name())
+	fileWriter, err := multipartWriter.CreateFormField("document")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create form file: %w", err)
 	}
-	_, err = io.Copy(fileWriter, file)
+	_, err = fileWriter.Write([]byte(photoUrl))
 	if err != nil {
-		return nil, fmt.Errorf("failed to copy file: %w", err)
+		return nil, fmt.Errorf("failed to write form file: %w", err)
 	}
 
 	// Close the multipart writer to finalize the form
@@ -73,9 +66,36 @@ func (c *client) GetPredictions(filename string) (*mindeeapi.MindeeExpenseReceip
 	if err != nil {
 		return nil, fmt.Errorf("failed to make api request: %w", err)
 	}
-	if resp.StatusCode() != http.StatusOK {
+	if resp.StatusCode() != http.StatusCreated {
 		return nil, fmt.Errorf("api request failed with status code %d", resp.StatusCode())
 	}
+	zap.S().Debug("Completed API request")
 	prediction := resp.JSON201.Document.Inference.Prediction
-	return prediction, nil
+
+	cheque := Cheque{
+		Date:  prediction.Date.Value.Format("2006-01-02"),
+		Time:  *prediction.Time.Value,
+		Total: float64(*prediction.TotalAmount.Value),
+		Items: make([]Item, 0, len(*prediction.LineItems)),
+	}
+
+	for _, lineItem := range *prediction.LineItems {
+		item := Item{}
+		if lineItem.Description != nil {
+			item.Name = *lineItem.Description
+		}
+		if lineItem.UnitPrice != nil {
+			item.Price = float64(*lineItem.UnitPrice)
+		}
+		if lineItem.Quantity != nil {
+			item.Quantity = int(*lineItem.Quantity)
+		}
+		if lineItem.TotalAmount != nil {
+			item.Total = float64(*lineItem.TotalAmount)
+		}
+
+		cheque.Items = append(cheque.Items, item)
+	}
+
+	return &cheque, nil
 }
