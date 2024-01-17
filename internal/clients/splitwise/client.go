@@ -15,7 +15,7 @@ type Config struct {
 }
 
 type client struct {
-	instances map[string]*instance
+	instances map[int64]*instance
 	oauthConf *oauth2.Config
 }
 
@@ -36,7 +36,7 @@ func (c *client) GetOAuthToken(ctx context.Context, code string) (string, error)
 	return tok.AccessToken, nil
 }
 
-func (c *client) AddInstanceFromOAuthToken(ctx context.Context, key string, token string) (Instance, error) {
+func (c *client) AddInstanceFromOAuthToken(ctx context.Context, key int64, token string) (Instance, error) {
 	tok := oauth2.Token{AccessToken: token}
 	httpClient := c.oauthConf.Client(ctx, &tok)
 
@@ -58,14 +58,14 @@ func (c *client) AddInstanceFromOAuthToken(ctx context.Context, key string, toke
 	return inst, nil
 }
 
-func (c *client) GetInstance(key string) (Instance, bool) {
+func (c *client) GetInstance(key int64) (Instance, bool) {
 	instance, ok := c.instances[key]
 	return instance, ok
 }
 
 func NewClient(cfg Config) (Client, error) {
 	return &client{
-		instances: map[string]*instance{},
+		instances: map[int64]*instance{},
 		oauthConf: &oauth2.Config{
 			ClientID:     cfg.ClientId,
 			ClientSecret: cfg.ClientSecret,

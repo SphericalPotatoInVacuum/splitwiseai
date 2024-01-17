@@ -3,7 +3,6 @@ package tokensdb
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -81,7 +80,7 @@ func (c *client) createTable() (*types.TableDescription, error) {
 	table, err := c.DynamoDbClient.CreateTable(context.TODO(), &dynamodb.CreateTableInput{
 		AttributeDefinitions: []types.AttributeDefinition{{
 			AttributeName: aws.String("telegram_id"),
-			AttributeType: types.ScalarAttributeTypeS,
+			AttributeType: types.ScalarAttributeTypeN,
 		}, {
 			AttributeName: aws.String("token"),
 			AttributeType: types.ScalarAttributeTypeS,
@@ -130,7 +129,7 @@ func (c *client) PutToken(ctx context.Context, token *Token) error {
 	return err
 }
 
-func (c *client) GetToken(ctx context.Context, telegramId string) (Token, error) {
+func (c *client) GetToken(ctx context.Context, telegramId int64) (Token, error) {
 	log := zap.S().With("telegram_id", telegramId)
 	log.Debug("Getting token")
 	user := Token{TelegramId: telegramId}
@@ -150,10 +149,10 @@ func (c *client) GetToken(ctx context.Context, telegramId string) (Token, error)
 	return user, err
 }
 
-func (c *client) DeleteToken(ctx context.Context, telegramId string) error {
+func (c *client) DeleteToken(ctx context.Context, telegramId int64) error {
 	log := c.log.With("telegram_id", telegramId)
 	_, err := c.DynamoDbClient.DeleteItem(context.TODO(), &dynamodb.DeleteItemInput{
-		TableName: aws.String(c.TableName), Key: Token{TelegramId: fmt.Sprint(telegramId)}.GetKey(),
+		TableName: aws.String(c.TableName), Key: Token{TelegramId: telegramId}.GetKey(),
 	})
 	if err != nil {
 		log.Errorw("Couldn't delete token from the table", zap.Error(err))

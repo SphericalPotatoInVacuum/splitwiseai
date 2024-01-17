@@ -86,10 +86,10 @@ func (c *client) createUserTable() (*types.TableDescription, error) {
 	table, err := c.DynamoDbClient.CreateTable(context.TODO(), &dynamodb.CreateTableInput{
 		AttributeDefinitions: []types.AttributeDefinition{{
 			AttributeName: aws.String("telegram_id"),
-			AttributeType: types.ScalarAttributeTypeS,
+			AttributeType: types.ScalarAttributeTypeN,
 		}, {
 			AttributeName: aws.String("splitwise_group_id"),
-			AttributeType: types.ScalarAttributeTypeS,
+			AttributeType: types.ScalarAttributeTypeN,
 		}, {
 			AttributeName: aws.String("currency"),
 			AttributeType: types.ScalarAttributeTypeS,
@@ -191,7 +191,7 @@ func (c *client) UpdateUser(ctx context.Context, user *User) (map[string]interfa
 }
 
 // GetUser gets user data from the DynamoDB table by using the primary key id
-func (c *client) GetUser(ctx context.Context, telegramId string) (User, error) {
+func (c *client) GetUser(ctx context.Context, telegramId int64) (User, error) {
 	log := zap.S().With("telegram_id", telegramId)
 	log.Debug("Getting user")
 	user := User{TelegramId: telegramId}

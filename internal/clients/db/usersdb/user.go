@@ -50,10 +50,10 @@ const (
 )
 
 type User struct {
-	TelegramId          string `dynamodbav:"telegram_id"`
+	TelegramId          int64  `dynamodbav:"telegram_id"`
 	State               string `dynamodbav:"state"`
 	SplitwiseOAuthState string `dynamodbav:"splitwise_oauth_state"`
-	SplitwiseGroupId    string `dynamodbav:"splitwise_group_id"`
+	SplitwiseGroupId    uint64 `dynamodbav:"splitwise_group_id"`
 	Currency            string `dynamodbav:"currency"`
 	Authorized          string `dynamodbav:"authorized"`
 }

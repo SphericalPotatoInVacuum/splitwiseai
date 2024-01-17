@@ -6,7 +6,7 @@ import (
 )
 
 type Token struct {
-	TelegramId string `dynamodbav:"telegram_id"`
+	TelegramId int64  `dynamodbav:"telegram_id"`
 	Token      string `dynamodbav:"token"`
 }
 

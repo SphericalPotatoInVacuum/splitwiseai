@@ -9,8 +9,8 @@ import (
 type Client interface {
 	GetOAuthUrl(state string) string
 	GetOAuthToken(ctx context.Context, code string) (string, error)
-	AddInstanceFromOAuthToken(ctx context.Context, key string, token string) (Instance, error)
-	GetInstance(key string) (Instance, bool)
+	AddInstanceFromOAuthToken(ctx context.Context, key int64, token string) (Instance, error)
+	GetInstance(key int64) (Instance, bool)
 }
 
 type Instance interface {
