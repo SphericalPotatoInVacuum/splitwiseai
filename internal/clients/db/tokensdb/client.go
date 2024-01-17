@@ -81,9 +81,6 @@ func (c *client) createTable() (*types.TableDescription, error) {
 		AttributeDefinitions: []types.AttributeDefinition{{
 			AttributeName: aws.String("telegram_id"),
 			AttributeType: types.ScalarAttributeTypeN,
-		}, {
-			AttributeName: aws.String("token"),
-			AttributeType: types.ScalarAttributeTypeS,
 		}},
 		KeySchema: []types.KeySchemaElement{{
 			AttributeName: aws.String("telegram_id"),

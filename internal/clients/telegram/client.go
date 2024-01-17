@@ -7,8 +7,6 @@ import (
 	"splitwiseai/internal/clients/db/usersdb"
 	"splitwiseai/internal/clients/mindee"
 	"splitwiseai/internal/clients/splitwise"
-	"strconv"
-	"strings"
 
 	"github.com/PaulSonOfLars/gotgbot/v2"
 	"github.com/PaulSonOfLars/gotgbot/v2/ext"
@@ -48,7 +46,7 @@ func NewClient(cfg Config, deps *BotDeps) (Client, error) {
 		// If an error is returned by a handler, log it and continue going.
 		Error: func(b *gotgbot.Bot, ctx *ext.Context, err error) ext.DispatcherAction {
 			log.Errorw("An error occurred while handling update", "update", ctx.Update, zap.Error(err))
-			return ext.DispatcherActionNoop
+			return ext.DispatcherActionEndGroups
 		},
 		Panic: func(b *gotgbot.Bot, ctx *ext.Context, r interface{}) {
 			log.Errorw("A panic occurred while handling update", "update", ctx.Update, zap.Any("panic", r))
@@ -62,6 +60,8 @@ func NewClient(cfg Config, deps *BotDeps) (Client, error) {
 		log:        log,
 	}
 
+	dispatcher.AddHandlerToGroup(handlers.NewMessage(filterUserUpdates, client.preprocess), -1)
+
 	dispatcher.AddHandler(handlers.NewCommand("start", client.start))
 	dispatcher.AddHandler(handlers.NewCommand("help", client.help))
 	dispatcher.AddHandler(handlers.NewCommand("authorize", client.authorize))
@@ -72,6 +72,45 @@ func NewClient(cfg Config, deps *BotDeps) (Client, error) {
 	dispatcher.AddHandler(handlers.NewMessage(newMessageFilter, client.newMessage))
 
 	return client, nil
+}
+
+func filterUserUpdates(message *gotgbot.Message) bool {
+	return message != nil && message.From != nil && !message.From.IsBot
+}
+
+func (c *client) preprocess(b *gotgbot.Bot, ctx *ext.Context) error {
+	user, err := c.deps.UsersDb.GetUser(context.Background(), ctx.EffectiveUser.Id)
+	if err != nil {
+		return fmt.Errorf("failed to get user: %w", err)
+	}
+	ctx.Data["user"] = user
+	if user == nil {
+		return nil
+	}
+	if user.Authorized {
+		splitwiseInstance, ok := c.deps.Splitwise.GetInstance(user.TelegramId)
+		if !ok {
+			token, err := c.deps.TokensDb.GetToken(context.Background(), user.TelegramId)
+			if err != nil {
+				err = fmt.Errorf("failed to get token: %w", err)
+			} else {
+				if token == (tokensdb.Token{}) {
+					err = fmt.Errorf("token not found")
+				} else {
+					splitwiseInstance, err = c.deps.Splitwise.AddInstanceFromOAuthToken(context.Background(), user.TelegramId, token.Token)
+					if err != nil {
+						err = fmt.Errorf("failed to add instance from oauth token: %w", err)
+					}
+				}
+			}
+			if err != nil {
+				b.SendMessage(ctx.EffectiveChat.Id, "Авторизуйтесь", &gotgbot.SendMessageOpts{})
+				return fmt.Errorf("user is authorized but splitwise instance couldn't be found: %w", err)
+			}
+		}
+		ctx.Data["splitwise_instance"] = splitwiseInstance
+	}
+	return nil
 }
 
 func (c *client) makeUserProfileString(user *usersdb.User) string {
@@ -135,7 +174,7 @@ func (c *client) Auth(authUrl string) error {
 	} else {
 		user.State = usersdb.IncompleteProfile.String()
 	}
-	_, err = c.deps.UsersDb.UpdateUser(context.Background(), &user)
+	_, err = c.deps.UsersDb.UpdateUser(context.Background(), user)
 	if err != nil {
 		return fmt.Errorf("failed to update user: %w", err)
 	}
@@ -148,44 +187,31 @@ func (c *client) Auth(authUrl string) error {
 
 func (c *client) start(b *gotgbot.Bot, ctx *ext.Context) error {
 	var err error
-	var user usersdb.User
-	user, err = c.deps.UsersDb.GetUser(context.Background(), ctx.EffectiveUser.Id)
-	if err != nil {
-		return fmt.Errorf("failed to get user: %w", err)
-	}
-	if user.State != usersdb.New.String() {
-		_, err = ctx.EffectiveMessage.Reply(
-			b,
-			"И снова здравствуй!\n"+
-				"Твоё текущее состояние:\n"+
-				c.makeUserProfileString(&user)+"\n"+
-				"Чтобы узнать больше, введи /help",
-			&gotgbot.SendMessageOpts{},
-		)
-		if err != nil {
-			return fmt.Errorf("failed to send message: %w", err)
+	user := ctx.Data["user"].(*usersdb.User)
+
+	if user == nil {
+		user = &usersdb.User{
+			TelegramId: ctx.EffectiveUser.Id,
+			State:      usersdb.IncompleteProfile.String(),
+			Authorized: false,
 		}
-		return nil
+		err = c.deps.UsersDb.CreateUser(context.Background(), user)
+		if err != nil {
+			return fmt.Errorf("failed to create user: %w", err)
+		}
+
+		b.SendMessage(ctx.EffectiveChat.Id, "Добро пожаловать!", &gotgbot.SendMessageOpts{})
 	}
-	user = usersdb.User{
-		TelegramId: ctx.EffectiveUser.Id,
-		State:      usersdb.IncompleteProfile.String(),
-		Authorized: false,
-	}
-	err = c.deps.UsersDb.CreateUser(context.Background(), &user)
-	if err != nil {
-		return fmt.Errorf("failed to create user: %w", err)
-	}
-	_, err = ctx.EffectiveMessage.Reply(
-		b,
+
+	b.SendMessage(
+		ctx.EffectiveChat.Id,
 		"Привет!\n"+
 			"Твоё текущее состояние:\n"+
-			c.makeUserProfileString(&user),
+			c.makeUserProfileString(user)+"\n"+
+			"Чтобы узнать больше, введи /help",
 		&gotgbot.SendMessageOpts{},
 	)
-	if err != nil {
-		return fmt.Errorf("failed to send message: %w", err)
-	}
+
 	return nil
 }
 
@@ -212,10 +238,8 @@ func newMessageFilter(msg *gotgbot.Message) bool {
 }
 
 func (c *client) authorize(b *gotgbot.Bot, ctx *ext.Context) error {
-	user, err := c.deps.UsersDb.GetUser(context.Background(), ctx.EffectiveUser.Id)
-	if err != nil {
-		return fmt.Errorf("failed to get user: %w", err)
-	}
+	user := ctx.Data["user"].(*usersdb.User)
+
 	oauthState, err := makeState(user.TelegramId)
 	if err != nil {
 		return fmt.Errorf("failed to generate random state: %w", err)
@@ -232,9 +256,10 @@ func (c *client) authorize(b *gotgbot.Bot, ctx *ext.Context) error {
 			},
 		},
 	)
+
 	user.State = usersdb.AwaitingOAuthCode.String()
 	user.SplitwiseOAuthState = oauthState
-	_, err = c.deps.UsersDb.UpdateUser(context.Background(), &user)
+	_, err = c.deps.UsersDb.UpdateUser(context.Background(), user)
 	if err != nil {
 		return fmt.Errorf("failed to update user: %w", err)
 	}
@@ -242,80 +267,21 @@ func (c *client) authorize(b *gotgbot.Bot, ctx *ext.Context) error {
 }
 
 func (c *client) newMessage(b *gotgbot.Bot, ctx *ext.Context) error {
-	user, err := c.deps.UsersDb.GetUser(context.Background(), ctx.EffectiveUser.Id)
-	if err != nil {
-		return fmt.Errorf("failed to get user: %w", err)
-	}
-	if user.State == usersdb.AwaitingOAuthCode.String() {
-		redirectUrl := ctx.EffectiveMessage.Text
-		code, state, err := parseOAuth2RedirectURL(redirectUrl)
-		if err != nil {
-			_, err = ctx.EffectiveMessage.Reply(b, "Неверный URL", &gotgbot.SendMessageOpts{})
-			if err != nil {
-				return fmt.Errorf("failed to send message: %w", err)
-			}
-			return nil
-		}
-		if state != user.SplitwiseOAuthState {
-			_, err = ctx.EffectiveMessage.Reply(b, "Неверный state", &gotgbot.SendMessageOpts{})
-			if err != nil {
-				return fmt.Errorf("failed to send message: %w", err)
-			}
-			return nil
-		}
-		token, err := c.deps.Splitwise.GetOAuthToken(context.Background(), code)
-		if err != nil {
-			return fmt.Errorf("failed to get oauth token: %w", err)
-		}
-		err = c.deps.TokensDb.PutToken(context.Background(), &tokensdb.Token{TelegramId: user.TelegramId, Token: token})
-		if err != nil {
-			return fmt.Errorf("failed to put token: %w", err)
-		}
-		user.Authorized = true
-		if user.Currency != "" {
-			user.State = usersdb.Ready.String()
-		} else {
-			user.State = usersdb.IncompleteProfile.String()
-		}
-		_, err = c.deps.UsersDb.UpdateUser(context.Background(), &user)
-		if err != nil {
-			return fmt.Errorf("failed to update user: %w", err)
-		}
-	}
 	return nil
 }
 
 func (c *client) getGroups(b *gotgbot.Bot, ctx *ext.Context) error {
-	user, err := c.deps.UsersDb.GetUser(context.Background(), ctx.EffectiveUser.Id)
-	if err != nil {
-		return fmt.Errorf("failed to get user: %w", err)
-	}
+	user := ctx.Data["user"].(*usersdb.User)
+
 	if !user.Authorized {
-		_, err = b.SendMessage(ctx.EffectiveChat.Id, "Вы не авторизованы", &gotgbot.SendMessageOpts{})
+		_, err := b.SendMessage(ctx.EffectiveChat.Id, "Вы не авторизованы", &gotgbot.SendMessageOpts{})
 		if err != nil {
 			return fmt.Errorf("failed to send message: %w", err)
 		}
 		return nil
 	}
 
-	splitwiseInstance, ok := c.deps.Splitwise.GetInstance(user.TelegramId)
-	if !ok {
-		token, err := c.deps.TokensDb.GetToken(context.Background(), user.TelegramId)
-		if err != nil {
-			return fmt.Errorf("failed to get token: %w", err)
-		}
-		if token == (tokensdb.Token{}) {
-			_, err = b.SendMessage(ctx.EffectiveChat.Id, "Авторизуйтесь", &gotgbot.SendMessageOpts{})
-			if err != nil {
-				return fmt.Errorf("failed to send message: %w", err)
-			}
-			return nil
-		}
-		splitwiseInstance, err = c.deps.Splitwise.AddInstanceFromOAuthToken(context.TODO(), user.TelegramId, token.Token)
-		if err != nil {
-			return fmt.Errorf("failed to add instance from oauth token: %w", err)
-		}
-	}
+	splitwiseInstance := ctx.Data["splitwise_instance"].(splitwise.Instance)
 
 	groups, err := splitwiseInstance.GetGroups(context.Background())
 	if err != nil {
@@ -339,10 +305,10 @@ func (c *client) getGroups(b *gotgbot.Bot, ctx *ext.Context) error {
 }
 
 func (c *client) setGroup(b *gotgbot.Bot, ctx *ext.Context) error {
-	user, err := c.deps.UsersDb.GetUser(context.Background(), ctx.EffectiveUser.Id)
-	if err != nil {
-		return fmt.Errorf("failed to get user: %w", err)
-	}
+	var err error
+
+	user := ctx.Data["user"].(*usersdb.User)
+
 	if !user.Authorized {
 		_, err = b.SendMessage(ctx.EffectiveChat.Id, "Вы не авторизованы", &gotgbot.SendMessageOpts{})
 		if err != nil {
@@ -350,66 +316,39 @@ func (c *client) setGroup(b *gotgbot.Bot, ctx *ext.Context) error {
 		}
 		return nil
 	}
-	if ctx.Message.Text == "/set_group" {
-		_, err = b.SendMessage(ctx.EffectiveChat.Id, "Отсутствует id группы", &gotgbot.SendMessageOpts{})
-		if err != nil {
-			return fmt.Errorf("failed to send message: %w", err)
-		}
+
+	var groupId uint64
+	n, err := fmt.Sscanf(ctx.Message.Text, "/set_group %d", &groupId)
+	if err != nil || n != 1 {
+		b.SendMessage(ctx.EffectiveChat.Id, "Неверный формат", &gotgbot.SendMessageOpts{})
 		return nil
 	}
-	parts := strings.Split(ctx.Message.Text, " ")
-	if len(parts) != 2 {
-		_, err = b.SendMessage(ctx.EffectiveChat.Id, "Неверный формат", &gotgbot.SendMessageOpts{})
-		if err != nil {
-			return fmt.Errorf("failed to send message: %w", err)
-		}
-		return nil
-	}
-	groupId, err := strconv.Atoi(parts[1])
-	if err != nil {
-		_, err = b.SendMessage(ctx.EffectiveChat.Id, "Неверный формат", &gotgbot.SendMessageOpts{})
-		if err != nil {
-			return fmt.Errorf("failed to send message: %w", err)
-		}
-	}
-	splitwiseInstance, ok := c.deps.Splitwise.GetInstance(user.TelegramId)
-	if !ok {
-		token, err := c.deps.TokensDb.GetToken(context.Background(), user.TelegramId)
-		if err != nil {
-			return fmt.Errorf("failed to get token: %w", err)
-		}
-		if token == (tokensdb.Token{}) {
-			_, err = b.SendMessage(ctx.EffectiveChat.Id, "Авторизуйтесь", &gotgbot.SendMessageOpts{})
-			if err != nil {
-				return fmt.Errorf("failed to send message: %w", err)
-			}
-			return nil
-		}
-		splitwiseInstance, err = c.deps.Splitwise.AddInstanceFromOAuthToken(context.TODO(), user.TelegramId, token.Token)
-		if err != nil {
-			return fmt.Errorf("failed to add instance from oauth token: %w", err)
-		}
-	}
-	group, err := splitwiseInstance.GetGroup(context.Background(), groupId)
+
+	splitwiseInstance := ctx.Data["splitwise_instance"].(splitwise.Instance)
+
+	group, err := splitwiseInstance.GetGroup(context.Background(), int(groupId))
 	if err != nil {
 		b.SendMessage(ctx.EffectiveChat.Id, "Неверный id группы", &gotgbot.SendMessageOpts{})
 		return nil
 	}
+
 	user.SplitwiseGroupId = uint64(group.ID)
-	_, err = c.deps.UsersDb.UpdateUser(context.Background(), &user)
+	_, err = c.deps.UsersDb.UpdateUser(context.Background(), user)
 	if err != nil {
 		return fmt.Errorf("failed to update user: %w", err)
 	}
+
 	b.SendMessage(ctx.EffectiveChat.Id, "Группа выбрана", &gotgbot.SendMessageOpts{})
-	b.SendMessage(ctx.EffectiveChat.Id, c.makeUserProfileString(&user), &gotgbot.SendMessageOpts{})
+	b.SendMessage(ctx.EffectiveChat.Id, c.makeUserProfileString(user), &gotgbot.SendMessageOpts{})
+
 	return nil
 }
 
 func (c *client) setCurrency(b *gotgbot.Bot, ctx *ext.Context) error {
-	user, err := c.deps.UsersDb.GetUser(context.Background(), ctx.EffectiveUser.Id)
-	if err != nil {
-		return fmt.Errorf("failed to get user: %w", err)
-	}
+	var err error
+
+	user := ctx.Data["user"].(*usersdb.User)
+
 	if !user.Authorized {
 		_, err = b.SendMessage(ctx.EffectiveChat.Id, "Вы не авторизованы", &gotgbot.SendMessageOpts{})
 		if err != nil {
@@ -417,41 +356,15 @@ func (c *client) setCurrency(b *gotgbot.Bot, ctx *ext.Context) error {
 		}
 		return nil
 	}
-	if ctx.Message.Text == "/set_currency" {
-		_, err = b.SendMessage(ctx.EffectiveChat.Id, "Отсутствует валюта", &gotgbot.SendMessageOpts{})
-		if err != nil {
-			return fmt.Errorf("failed to send message: %w", err)
-		}
-		return nil
-	}
-	parts := strings.Split(ctx.Message.Text, " ")
-	if len(parts) != 2 {
-		_, err = b.SendMessage(ctx.EffectiveChat.Id, "Неверный формат", &gotgbot.SendMessageOpts{})
-		if err != nil {
-			return fmt.Errorf("failed to send message: %w", err)
-		}
-		return nil
-	}
-	currency := parts[1]
 
-	splitwiseInstance, ok := c.deps.Splitwise.GetInstance(user.TelegramId)
-	if !ok {
-		token, err := c.deps.TokensDb.GetToken(context.Background(), user.TelegramId)
-		if err != nil {
-			return fmt.Errorf("failed to get token: %w", err)
-		}
-		if token == (tokensdb.Token{}) {
-			_, err = b.SendMessage(ctx.EffectiveChat.Id, "Авторизуйтесь", &gotgbot.SendMessageOpts{})
-			if err != nil {
-				return fmt.Errorf("failed to send message: %w", err)
-			}
-			return nil
-		}
-		splitwiseInstance, err = c.deps.Splitwise.AddInstanceFromOAuthToken(context.TODO(), user.TelegramId, token.Token)
-		if err != nil {
-			return fmt.Errorf("failed to add instance from oauth token: %w", err)
-		}
+	var currency string
+	n, err := fmt.Sscanf(ctx.Message.Text, "/set_currency %s", &currency)
+	if err != nil || n != 1 {
+		b.SendMessage(ctx.EffectiveChat.Id, "Неверный формат", &gotgbot.SendMessageOpts{})
+		return nil
 	}
+
+	splitwiseInstance := ctx.Data["splitwise_instance"].(splitwise.Instance)
 
 	currencies, err := splitwiseInstance.GetCurrencies(context.Background())
 	if err != nil {
@@ -471,11 +384,13 @@ func (c *client) setCurrency(b *gotgbot.Bot, ctx *ext.Context) error {
 	}
 
 	user.Currency = currency
-	_, err = c.deps.UsersDb.UpdateUser(context.Background(), &user)
+	_, err = c.deps.UsersDb.UpdateUser(context.Background(), user)
 	if err != nil {
 		return fmt.Errorf("failed to update user: %w", err)
 	}
+
 	b.SendMessage(ctx.EffectiveChat.Id, "Валюта выбрана", &gotgbot.SendMessageOpts{})
-	b.SendMessage(ctx.EffectiveChat.Id, c.makeUserProfileString(&user), &gotgbot.SendMessageOpts{})
+	b.SendMessage(ctx.EffectiveChat.Id, c.makeUserProfileString(user), &gotgbot.SendMessageOpts{})
+
 	return nil
 }

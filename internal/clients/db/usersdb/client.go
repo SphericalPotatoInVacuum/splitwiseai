@@ -87,21 +87,6 @@ func (c *client) createUserTable() (*types.TableDescription, error) {
 		AttributeDefinitions: []types.AttributeDefinition{{
 			AttributeName: aws.String("telegram_id"),
 			AttributeType: types.ScalarAttributeTypeN,
-		}, {
-			AttributeName: aws.String("splitwise_group_id"),
-			AttributeType: types.ScalarAttributeTypeN,
-		}, {
-			AttributeName: aws.String("currency"),
-			AttributeType: types.ScalarAttributeTypeS,
-		}, {
-			AttributeName: aws.String("splitwise_oauth_state"),
-			AttributeType: types.ScalarAttributeTypeS,
-		}, {
-			AttributeName: aws.String("state"),
-			AttributeType: types.ScalarAttributeTypeS,
-		}, {
-			AttributeName: aws.String("authorized"),
-			AttributeType: types.ScalarAttributeTypeB,
 		}},
 		KeySchema: []types.KeySchemaElement{{
 			AttributeName: aws.String("telegram_id"),
@@ -134,7 +119,7 @@ func (c *client) createUserTable() (*types.TableDescription, error) {
 // AddUser adds a user the DynamoDB table.
 func (c *client) CreateUser(ctx context.Context, user *User) error {
 	log := c.log.With("user", user)
-
+	log.Debug("Adding user")
 	item, err := attributevalue.MarshalMap(user)
 	if err != nil {
 		panic(err)
@@ -145,6 +130,7 @@ func (c *client) CreateUser(ctx context.Context, user *User) error {
 	if err != nil {
 		log.Errorw("Couldn't add item to table", zap.Error(err))
 	}
+	log.Debug("Added user")
 	return err
 }
 
@@ -191,7 +177,7 @@ func (c *client) UpdateUser(ctx context.Context, user *User) (map[string]interfa
 }
 
 // GetUser gets user data from the DynamoDB table by using the primary key id
-func (c *client) GetUser(ctx context.Context, telegramId int64) (User, error) {
+func (c *client) GetUser(ctx context.Context, telegramId int64) (*User, error) {
 	log := zap.S().With("telegram_id", telegramId)
 	log.Debug("Getting user")
 	user := User{TelegramId: telegramId}
@@ -207,8 +193,12 @@ func (c *client) GetUser(ctx context.Context, telegramId int64) (User, error) {
 			log.Errorw("Couldn't unmarshal response", zap.Error(err))
 		}
 	}
+	if response.Item == nil {
+		log.Debugw("User not found")
+		return nil, nil
+	}
 	log.Debugw("Got user", "user", user)
-	return user, err
+	return &user, err
 }
 
 // DeleteUser removes a user from the DynamoDB table.
