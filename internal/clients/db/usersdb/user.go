@@ -42,20 +42,13 @@ func (s UserState) String() string {
 	return "unknown"
 }
 
-type AuthorizedState string
-
-const (
-	Authorized   AuthorizedState = "true"
-	Unauthorized AuthorizedState = "false"
-)
-
 type User struct {
 	TelegramId          int64  `dynamodbav:"telegram_id"`
 	State               string `dynamodbav:"state"`
 	SplitwiseOAuthState string `dynamodbav:"splitwise_oauth_state"`
 	SplitwiseGroupId    uint64 `dynamodbav:"splitwise_group_id"`
 	Currency            string `dynamodbav:"currency"`
-	Authorized          string `dynamodbav:"authorized"`
+	Authorized          bool   `dynamodbav:"authorized"`
 }
 
 func (u User) GetKey() map[string]types.AttributeValue {

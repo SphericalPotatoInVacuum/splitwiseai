@@ -77,7 +77,7 @@ func NewClient(cfg Config, deps *BotDeps) (Client, error) {
 func (c *client) makeUserProfileString(user *usersdb.User) string {
 	var authorizedStr, groupString, currencyStr string
 
-	if user.Authorized == string(usersdb.Authorized) {
+	if user.Authorized {
 		authorizedStr = "✔️"
 	} else {
 		authorizedStr = "✖️"
@@ -128,7 +128,7 @@ func (c *client) Auth(authUrl string) error {
 	if err != nil {
 		return fmt.Errorf("failed to put token: %w", err)
 	}
-	user.Authorized = string(usersdb.Authorized)
+	user.Authorized = true
 	user.SplitwiseOAuthState = ""
 	if user.Currency != "" {
 		user.State = usersdb.Ready.String()
@@ -170,7 +170,7 @@ func (c *client) start(b *gotgbot.Bot, ctx *ext.Context) error {
 	user = usersdb.User{
 		TelegramId: ctx.EffectiveUser.Id,
 		State:      usersdb.IncompleteProfile.String(),
-		Authorized: string(usersdb.Unauthorized),
+		Authorized: false,
 	}
 	err = c.deps.UsersDb.CreateUser(context.Background(), &user)
 	if err != nil {
@@ -271,7 +271,7 @@ func (c *client) newMessage(b *gotgbot.Bot, ctx *ext.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to put token: %w", err)
 		}
-		user.Authorized = string(usersdb.Authorized)
+		user.Authorized = true
 		if user.Currency != "" {
 			user.State = usersdb.Ready.String()
 		} else {
@@ -290,7 +290,7 @@ func (c *client) getGroups(b *gotgbot.Bot, ctx *ext.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to get user: %w", err)
 	}
-	if user.Authorized == string(usersdb.Unauthorized) {
+	if !user.Authorized {
 		_, err = b.SendMessage(ctx.EffectiveChat.Id, "Вы не авторизованы", &gotgbot.SendMessageOpts{})
 		if err != nil {
 			return fmt.Errorf("failed to send message: %w", err)
@@ -343,7 +343,7 @@ func (c *client) setGroup(b *gotgbot.Bot, ctx *ext.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to get user: %w", err)
 	}
-	if user.Authorized == string(usersdb.Unauthorized) {
+	if !user.Authorized {
 		_, err = b.SendMessage(ctx.EffectiveChat.Id, "Вы не авторизованы", &gotgbot.SendMessageOpts{})
 		if err != nil {
 			return fmt.Errorf("failed to send message: %w", err)
@@ -410,7 +410,7 @@ func (c *client) setCurrency(b *gotgbot.Bot, ctx *ext.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to get user: %w", err)
 	}
-	if user.Authorized == string(usersdb.Unauthorized) {
+	if !user.Authorized {
 		_, err = b.SendMessage(ctx.EffectiveChat.Id, "Вы не авторизованы", &gotgbot.SendMessageOpts{})
 		if err != nil {
 			return fmt.Errorf("failed to send message: %w", err)

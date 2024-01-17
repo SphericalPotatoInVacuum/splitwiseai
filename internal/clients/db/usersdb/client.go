@@ -101,7 +101,7 @@ func (c *client) createUserTable() (*types.TableDescription, error) {
 			AttributeType: types.ScalarAttributeTypeS,
 		}, {
 			AttributeName: aws.String("authorized"),
-			AttributeType: types.ScalarAttributeTypeS,
+			AttributeType: types.ScalarAttributeTypeB,
 		}},
 		KeySchema: []types.KeySchemaElement{{
 			AttributeName: aws.String("telegram_id"),
