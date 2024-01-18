@@ -1,4 +1,4 @@
-package mindee
+package ocr
 
 import (
 	"bytes"
@@ -7,7 +7,7 @@ import (
 	"mime/multipart"
 	"net/http"
 
-	"splitwiseai/internal/clients/mindee/mindeeapi"
+	"splitwiseai/internal/clients/ocr/mindeeapi"
 
 	"go.uber.org/zap"
 )
@@ -37,7 +37,7 @@ func NewClient(cfg Config) (Client, error) {
 	return &client{mindeeClient: mindeeClient}, nil
 }
 
-func (c *client) GetPredictions(photoUrl string) (*Cheque, error) {
+func (c *client) GetChequeTranscription(photoUrl string) (*Cheque, error) {
 	var requestBody bytes.Buffer
 	multipartWriter := multipart.NewWriter(&requestBody)
 
@@ -74,26 +74,17 @@ func (c *client) GetPredictions(photoUrl string) (*Cheque, error) {
 
 	cheque := Cheque{
 		Date:  prediction.Date.Value.Format("2006-01-02"),
-		Time:  *prediction.Time.Value,
-		Total: float64(*prediction.TotalAmount.Value),
+		Total: prediction.TotalAmount.Value,
 		Items: make([]Item, 0, len(*prediction.LineItems)),
 	}
 
 	for _, lineItem := range *prediction.LineItems {
-		item := Item{}
-		if lineItem.Description != nil {
-			item.Name = *lineItem.Description
+		item := Item{
+			Name:     lineItem.Description,
+			Price:    lineItem.UnitPrice,
+			Quantity: lineItem.Quantity,
+			Total:    lineItem.TotalAmount,
 		}
-		if lineItem.UnitPrice != nil {
-			item.Price = float64(*lineItem.UnitPrice)
-		}
-		if lineItem.Quantity != nil {
-			item.Quantity = int(*lineItem.Quantity)
-		}
-		if lineItem.TotalAmount != nil {
-			item.Total = float64(*lineItem.TotalAmount)
-		}
-
 		cheque.Items = append(cheque.Items, item)
 	}
 

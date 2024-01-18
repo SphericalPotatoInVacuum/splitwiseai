@@ -4,7 +4,10 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"io"
+	"net/http"
 	"net/url"
+	"os"
 )
 
 func generateSalt() (string, error) {
@@ -46,4 +49,33 @@ func parseOAuth2RedirectURL(redirectURL string) (string, string, error) {
 	code := queryValues.Get("code")
 	state := queryValues.Get("state")
 	return code, state, nil
+}
+
+func downloadFile(url string) (tempFilePath string, err error) {
+	// Create a temporary file
+	tmpFile, err := os.CreateTemp("/tmp/", "prefix")
+	if err != nil {
+		return "", err
+	}
+	defer tmpFile.Close()
+
+	// Get the data
+	resp, err := http.Get(url)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	// Check server response
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("bad status: %s", resp.Status)
+	}
+
+	// Write the body to file
+	_, err = io.Copy(tmpFile, resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	return tmpFile.Name(), nil
 }

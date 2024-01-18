@@ -3,6 +3,8 @@ module splitwiseai
 go 1.21.5
 
 require (
+	github.com/Azure/azure-sdk-for-go/sdk/ai/azopenai v0.4.1
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.9.1
 	github.com/PaulSonOfLars/gotgbot/v2 v2.0.0-rc.23
 	github.com/aanzolaavila/splitwise.go v0.2.0
 	github.com/aws/aws-sdk-go-v2 v1.24.1
@@ -18,6 +20,7 @@ require (
 )
 
 require (
+	github.com/Azure/azure-sdk-for-go/sdk/internal v1.5.1 // indirect
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.2.10 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.5.10 // indirect
@@ -37,6 +40,7 @@ require (
 	github.com/perimeterx/marshmallow v1.1.5 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
 	golang.org/x/net v0.20.0 // indirect
+	golang.org/x/text v0.14.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

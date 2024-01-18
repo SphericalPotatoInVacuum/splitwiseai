@@ -4,23 +4,25 @@ import (
 	"fmt"
 	"splitwiseai/internal/clients/db/tokensdb"
 	"splitwiseai/internal/clients/db/usersdb"
-	"splitwiseai/internal/clients/mindee"
+	"splitwiseai/internal/clients/ocr"
+	"splitwiseai/internal/clients/openai"
 	"splitwiseai/internal/clients/splitwise"
 	"splitwiseai/internal/clients/telegram"
 )
 
 type Config struct {
-	MindeeCfg    mindee.Config
+	MindeeCfg    ocr.Config
 	SplitwiseCfg splitwise.Config
 	UsersDbCfg   usersdb.Config
 	TokensDbCfg  tokensdb.Config
 	TelegramCfg  telegram.Config
+	OpenAICfg    openai.Config
+
+	OcrClient string `env:"OCR_CLIENT"`
 }
 
 type clients struct {
-	mindee   mindee.Client
-	usersDb  usersdb.Client
-	tokensDb tokensdb.Client
+	oai      openai.Client
 	telegram telegram.Client
 }
 
@@ -28,11 +30,6 @@ func NewClients(cfg Config) (Clients, error) {
 	splitwiseClient, err := splitwise.NewClient(cfg.SplitwiseCfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create splitwise client: %w", err)
-	}
-
-	mindeeClient, err := mindee.NewClient(cfg.MindeeCfg)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create mindee client: %w", err)
 	}
 
 	usersDbClient, err := usersdb.NewClient(cfg.UsersDbCfg)
@@ -45,27 +42,44 @@ func NewClients(cfg Config) (Clients, error) {
 		return nil, fmt.Errorf("failed to create tokensdb client: %w", err)
 	}
 
+	oaiClient, err := openai.NewClient(cfg.OpenAICfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create openai client: %w", err)
+	}
+
+	var mindeeClient ocr.Client
+	if cfg.OcrClient == "mindee" {
+		mindeeClient, err = ocr.NewClient(cfg.MindeeCfg)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create mindee client: %w", err)
+		}
+	} else if cfg.OcrClient == "gpt" {
+		mindeeClient = oaiClient
+	} else {
+		return nil, fmt.Errorf("invalid OCR client: %s", cfg.OcrClient)
+	}
+
 	telegramClient, err := telegram.NewClient(cfg.TelegramCfg, &telegram.BotDeps{
 		UsersDb:   usersDbClient,
 		TokensDb:  tokensDbClient,
 		Splitwise: splitwiseClient,
-		Mindee:    mindeeClient,
+		Ocr:       mindeeClient,
+		OpenAI:    oaiClient,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create telegram client: %w", err)
 	}
 
 	return &clients{
-		mindee:   mindeeClient,
-		usersDb:  usersDbClient,
 		telegram: telegramClient,
+		oai:      oaiClient,
 	}, nil
-}
-
-func (c *clients) Mindee() mindee.Client {
-	return c.mindee
 }
 
 func (c *clients) Telegram() telegram.Client {
 	return c.telegram
+}
+
+func (c *clients) OpenAI() openai.Client {
+	return c.oai
 }

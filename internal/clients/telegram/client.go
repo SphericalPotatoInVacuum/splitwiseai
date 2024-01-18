@@ -6,7 +6,8 @@ import (
 	"fmt"
 	"splitwiseai/internal/clients/db/tokensdb"
 	"splitwiseai/internal/clients/db/usersdb"
-	"splitwiseai/internal/clients/mindee"
+	"splitwiseai/internal/clients/ocr"
+	"splitwiseai/internal/clients/openai"
 	"splitwiseai/internal/clients/splitwise"
 
 	"github.com/PaulSonOfLars/gotgbot/v2"
@@ -23,8 +24,9 @@ type Config struct {
 type BotDeps struct {
 	UsersDb   usersdb.Client
 	TokensDb  tokensdb.Client
-	Mindee    mindee.Client
+	Ocr       ocr.Client
 	Splitwise splitwise.Client
+	OpenAI    openai.Client
 }
 
 type client struct {
@@ -308,39 +310,55 @@ func (c *client) newMessage(b *gotgbot.Bot, ctx *ext.Context) error {
 
 	if user.State == usersdb.Ready.String() {
 		photos := ctx.EffectiveMessage.Photo
-		if photos == nil {
-			b.SendMessage(ctx.EffectiveChat.Id, "Пришлите фото чека", &gotgbot.SendMessageOpts{})
-			return nil
+		if photos != nil {
+			photoFile, err := b.GetFile(photos[len(photos)-1].FileId, &gotgbot.GetFileOpts{})
+			if err != nil {
+				return fmt.Errorf("failed to get file: %w", err)
+			}
+
+			photoUrl := photoFile.URL(b, &gotgbot.RequestOpts{})
+
+			b.SendMessage(ctx.EffectiveChat.Id, "Обрабатываю чек...", &gotgbot.SendMessageOpts{})
+
+			cheque, err := c.deps.Ocr.GetChequeTranscription(photoUrl)
+			if err != nil {
+				return fmt.Errorf("failed to get vision: %w", err)
+			}
+
+			textBytes, _ := json.MarshalIndent(cheque, "", "  ")
+
+			_, err = b.SendMessage(
+				ctx.EffectiveChat.Id,
+				fmt.Sprintf("<pre><code class=\"language-json\">%s</code></pre>", string(textBytes)),
+				&gotgbot.SendMessageOpts{
+					ParseMode: "HTML",
+				},
+			)
+			if err != nil {
+				return fmt.Errorf("failed to send message: %w", err)
+			}
 		}
+		if ctx.EffectiveMessage.Voice != nil {
+			voice := ctx.EffectiveMessage.Voice
+			c.log.Debugw("voice mime type", "mime", voice.MimeType)
+			voiceFile, err := b.GetFile(voice.FileId, &gotgbot.GetFileOpts{})
+			if err != nil {
+				return fmt.Errorf("failed to get file: %w", err)
+			}
+			c.log.Debugw("got voice file", "file", voiceFile)
+			voiceFileURL := voiceFile.URL(b, &gotgbot.RequestOpts{})
 
-		photoFile, err := b.GetFile(photos[len(photos)-1].FileId, &gotgbot.GetFileOpts{})
-		if err != nil {
-			return fmt.Errorf("failed to get file: %w", err)
-		}
+			voiceFilePath, err := downloadFile(voiceFileURL)
+			if err != nil {
+				return fmt.Errorf("failed to download file: %w", err)
+			}
+			c.log.Debugw("downloaded voice file", "path", voiceFilePath)
 
-		photoUrl := photoFile.URL(b, &gotgbot.RequestOpts{})
-
-		b.SendMessage(ctx.EffectiveChat.Id, "Обрабатываю чек...", &gotgbot.SendMessageOpts{})
-
-		predictions, err := c.deps.Mindee.GetPredictions(photoUrl)
-		if err != nil {
-			return fmt.Errorf("failed to get predictions: %w", err)
-		}
-
-		textBytes, err := json.MarshalIndent(predictions, "", "  ")
-		if err != nil {
-			return fmt.Errorf("failed to marshal predictions: %w", err)
-		}
-
-		_, err = b.SendMessage(
-			ctx.EffectiveChat.Id,
-			fmt.Sprintf("<pre><code class=\"language-json\">%s</code></pre>", string(textBytes)),
-			&gotgbot.SendMessageOpts{
-				ParseMode: "HTML",
-			},
-		)
-		if err != nil {
-			return fmt.Errorf("failed to send message: %w", err)
+			voiceText, err := c.deps.OpenAI.GetTranscription(voiceFilePath, "")
+			if err != nil {
+				return fmt.Errorf("failed to get transcription: %w", err)
+			}
+			ctx.EffectiveMessage.Reply(b, voiceText, &gotgbot.SendMessageOpts{})
 		}
 	}
 
