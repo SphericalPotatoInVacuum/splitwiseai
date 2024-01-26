@@ -5,42 +5,16 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
-type UserState int
+type UserState string
 
 const (
-	New UserState = iota
-	AwaitingOAuthCode
-	IncompleteProfile
-	Ready
-	Uploaded
-	SelectingUsers
-	Splitting
+	Unauthorized      UserState = "unauthorized"
+	AwaitingOAuthCode UserState = "awaiting_oauth_code"
+	Ready             UserState = "ready"
+	Uploaded          UserState = "uploaded"
+	SelectingUsers    UserState = "selecting_users"
+	Splitting         UserState = "splitting"
 )
-
-func (s UserState) String() string {
-	if s == New {
-		return "new"
-	}
-	if s == AwaitingOAuthCode {
-		return "awaiting_oauth_code"
-	}
-	if s == IncompleteProfile {
-		return "incomplete_profile"
-	}
-	if s == Ready {
-		return "ready"
-	}
-	if s == Uploaded {
-		return "uploaded"
-	}
-	if s == SelectingUsers {
-		return "selecting_users"
-	}
-	if s == Splitting {
-		return "splitting"
-	}
-	return "unknown"
-}
 
 type User struct {
 	TelegramId          int64  `dynamodbav:"telegram_id"`

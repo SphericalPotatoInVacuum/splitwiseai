@@ -134,12 +134,6 @@ func (c *client) postprocess(b *gotgbot.Bot, ctx *ext.Context) error {
 		return nil
 	}
 
-	if user.Authorized && user.Currency != "" {
-		user.State = usersdb.Ready.String()
-	} else {
-		user.State = usersdb.IncompleteProfile.String()
-	}
-
 	_, err := c.deps.UsersDb.UpdateUser(context.Background(), user)
 	if err != nil {
 		return fmt.Errorf("failed to update user: %w", err)
@@ -158,12 +152,7 @@ func (c *client) makeUserProfileString(user *usersdb.User) string {
 	}
 
 	groupString = fmt.Sprint(user.SplitwiseGroupId)
-
-	if user.Currency != "" {
 		currencyStr = user.Currency
-	} else {
-		currencyStr = "✖️"
-	}
 
 	return fmt.Sprintf(
 		"Authorized: %s\nSelected group: %s\nSelected currency: %s\n",
@@ -204,11 +193,8 @@ func (c *client) Auth(authUrl string) error {
 	}
 	user.Authorized = true
 	user.SplitwiseOAuthState = ""
-	if user.Currency != "" {
-		user.State = usersdb.Ready.String()
-	} else {
-		user.State = usersdb.IncompleteProfile.String()
-	}
+	user.State = string(usersdb.Ready)
+
 	_, err = c.deps.UsersDb.UpdateUser(context.Background(), user)
 	if err != nil {
 		return fmt.Errorf("failed to update user: %w", err)
@@ -226,9 +212,11 @@ func (c *client) start(b *gotgbot.Bot, ctx *ext.Context) error {
 
 	if user == nil {
 		user = &usersdb.User{
-			TelegramId: ctx.EffectiveUser.Id,
-			State:      usersdb.IncompleteProfile.String(),
-			Authorized: false,
+			TelegramId:       ctx.EffectiveUser.Id,
+			State:            string(usersdb.Unauthorized),
+			Currency:         "USD",
+			SplitwiseGroupId: 0,
+			Authorized:       false,
 		}
 		err = c.deps.UsersDb.CreateUser(context.Background(), user)
 		if err != nil {
@@ -292,7 +280,7 @@ func (c *client) authorize(b *gotgbot.Bot, ctx *ext.Context) error {
 		},
 	)
 
-	user.State = usersdb.AwaitingOAuthCode.String()
+	user.State = string(usersdb.AwaitingOAuthCode)
 	user.SplitwiseOAuthState = oauthState
 
 	ctx.Data["user_dirty"] = true
@@ -308,7 +296,7 @@ func (c *client) newMessage(b *gotgbot.Bot, ctx *ext.Context) error {
 		return nil
 	}
 
-	if user.State == usersdb.Ready.String() {
+	if user.State == string(usersdb.Ready) {
 		photos := ctx.EffectiveMessage.Photo
 		if photos != nil {
 			photoFile, err := b.GetFile(photos[len(photos)-1].FileId, &gotgbot.GetFileOpts{})
