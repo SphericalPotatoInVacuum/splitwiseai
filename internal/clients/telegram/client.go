@@ -327,30 +327,38 @@ func (c *client) newMessage(b *gotgbot.Bot, ctx *ext.Context) error {
 			}
 		}
 		if ctx.EffectiveMessage.Voice != nil {
-			voice := ctx.EffectiveMessage.Voice
-			c.log.Debugw("voice mime type", "mime", voice.MimeType)
-			voiceFile, err := b.GetFile(voice.FileId, &gotgbot.GetFileOpts{})
+			voiceText, err := c.getVoiceTranscription(ctx.EffectiveMessage)
 			if err != nil {
-				return fmt.Errorf("failed to get file: %w", err)
-			}
-			c.log.Debugw("got voice file", "file", voiceFile)
-			voiceFileURL := voiceFile.URL(b, &gotgbot.RequestOpts{})
-
-			voiceFilePath, err := downloadFile(voiceFileURL)
-			if err != nil {
-				return fmt.Errorf("failed to download file: %w", err)
-			}
-			c.log.Debugw("downloaded voice file", "path", voiceFilePath)
-
-			voiceText, err := c.deps.OpenAI.GetTranscription(voiceFilePath, "")
-			if err != nil {
-				return fmt.Errorf("failed to get transcription: %w", err)
+				return fmt.Errorf("failed to get voice transcription: %w", err)
 			}
 			ctx.EffectiveMessage.Reply(b, voiceText, &gotgbot.SendMessageOpts{})
 		}
 	}
 
 	return nil
+}
+
+func (c *client) getVoiceTranscription(msg *gotgbot.Message) (string, error) {
+	voice := msg.Voice
+	c.log.Debugw("voice mime type", "mime", voice.MimeType)
+	voiceFile, err := c.bot.GetFile(voice.FileId, &gotgbot.GetFileOpts{})
+	if err != nil {
+		return "", fmt.Errorf("failed to get file: %w", err)
+	}
+	c.log.Debugw("got voice file", "file", voiceFile)
+	voiceFileURL := voiceFile.URL(c.bot, &gotgbot.RequestOpts{})
+
+	voiceFilePath, err := downloadFile(voiceFileURL)
+	if err != nil {
+		return "", fmt.Errorf("failed to download file: %w", err)
+	}
+	c.log.Debugw("downloaded voice file", "path", voiceFilePath)
+
+	voiceText, err := c.deps.OpenAI.GetTranscription(voiceFilePath, "")
+	if err != nil {
+		return "", fmt.Errorf("failed to get transcription: %w", err)
+	}
+	return *voiceText, nil
 }
 
 func (c *client) getGroups(b *gotgbot.Bot, ctx *ext.Context) error {

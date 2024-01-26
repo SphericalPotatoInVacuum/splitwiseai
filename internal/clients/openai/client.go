@@ -51,11 +51,11 @@ func NewClient(cfg Config) (Client, error) {
 	}, nil
 }
 
-func (c *client) GetTranscription(filePath string, prompt string) (string, error) {
+func (c *client) GetTranscription(filePath string, prompt string) (*string, error) {
 	voiceBytes, err := os.ReadFile(filePath)
 
 	if err != nil {
-		return "", nil
+		return nil, err
 	}
 
 	temp := float32(0.0)
@@ -73,10 +73,10 @@ func (c *client) GetTranscription(filePath string, prompt string) (string, error
 	}, nil)
 
 	if err != nil {
-		return "", fmt.Errorf("failed to get audio transcription: %w", err)
+		return nil, fmt.Errorf("failed to get audio transcription: %w", err)
 	}
 
-	return *resp.Text, nil
+	return resp.Text, nil
 }
 
 var (
