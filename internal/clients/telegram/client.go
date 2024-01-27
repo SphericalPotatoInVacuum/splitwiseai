@@ -107,7 +107,7 @@ func (c *client) preprocess(b *gotgbot.Bot, ctx *ext.Context) error {
 		if err != nil {
 			err = fmt.Errorf("failed to get token: %w", err)
 		} else {
-			if token == (tokensdb.Token{}) {
+			if token == nil {
 				err = fmt.Errorf("token not found")
 			} else {
 				splitwiseInstance, err = c.deps.Splitwise.AddInstanceFromOAuthToken(context.Background(), user.TelegramId, token.Token)
@@ -118,7 +118,7 @@ func (c *client) preprocess(b *gotgbot.Bot, ctx *ext.Context) error {
 		}
 		if err != nil {
 			b.SendMessage(ctx.EffectiveChat.Id, "Авторизуйтесь", &gotgbot.SendMessageOpts{})
-			return fmt.Errorf("user is authorized but splitwise instance couldn't be found: %w", err)
+			return fmt.Errorf("user is authorized but splitwise instance couldn't be created: %w", err)
 		}
 	}
 	ctx.Data["splitwise_instance"] = splitwiseInstance
@@ -218,7 +218,7 @@ func (c *client) start(b *gotgbot.Bot, ctx *ext.Context) error {
 			SplitwiseGroupId: 0,
 			Authorized:       false,
 		}
-		err = c.deps.UsersDb.CreateUser(context.Background(), user)
+		err = c.deps.UsersDb.PutUser(context.Background(), user)
 		if err != nil {
 			return fmt.Errorf("failed to create user: %w", err)
 		}

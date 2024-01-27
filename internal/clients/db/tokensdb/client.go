@@ -3,6 +3,7 @@ package tokensdb
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -29,7 +30,7 @@ type client struct {
 func NewClient(cfg Config) (Client, error) {
 	log := zap.S().With("table", cfg.TableName)
 
-	log.Debugln("Creating DynamoDB client")
+	log.Debug("Creating DynamoDB client")
 	DynamoDbClient := dynamodb.NewFromConfig(
 		aws.Config{
 			Region:      "ru-central1",
@@ -42,15 +43,15 @@ func NewClient(cfg Config) (Client, error) {
 	client := &client{DynamoDbClient: DynamoDbClient, TableName: cfg.TableName, log: log}
 	exists, err := client.tableExists()
 	if err != nil {
-		log.Panicw("Failed to check if table exists", zap.Error(err))
+		return nil, fmt.Errorf("failed to check if table exists: %w", err)
 	}
 	if !exists {
 		_, err = client.createTable()
 		if err != nil {
-			zap.S().Panicw("Failed to create table", zap.Error(err))
+			return nil, fmt.Errorf("failed to create table: %w", err)
 		}
 	}
-	log.Info("Ensured table exists")
+	log.Debug("Ensured table exists")
 	return client, nil
 }
 
@@ -63,7 +64,6 @@ func (c *client) tableExists() (bool, error) {
 	if err != nil {
 		var notFoundEx *types.ResourceNotFoundException
 		if errors.As(err, &notFoundEx) {
-			log.Infoln("Table doesn't exist")
 			err = nil
 		} else {
 			log.Errorw("Couldn't determine existence of table", zap.Error(err))
@@ -94,13 +94,13 @@ func (c *client) createTable() (*types.TableDescription, error) {
 	})
 
 	if err != nil {
-		log.Errorw("Couldn't create table", zap.Error(err))
+		return nil, fmt.Errorf("failed to create the table: %w", err)
 	} else {
 		waiter := dynamodb.NewTableExistsWaiter(c.DynamoDbClient)
 		err = waiter.Wait(context.TODO(), &dynamodb.DescribeTableInput{
 			TableName: aws.String(c.TableName)}, 5*time.Minute)
 		if err != nil {
-			log.Errorw("Wait for table exists failed", zap.Error(err))
+			return nil, fmt.Errorf("failed to wait for table existance: %w", err)
 		}
 		tableDesc = table.TableDescription
 	}
@@ -112,6 +112,7 @@ func (c *client) createTable() (*types.TableDescription, error) {
 
 func (c *client) PutToken(ctx context.Context, token *Token) error {
 	log := c.log.With("telegram_id", token.TelegramId)
+	log.Debug("Putting token")
 
 	item, err := attributevalue.MarshalMap(token)
 	if err != nil {
@@ -121,40 +122,54 @@ func (c *client) PutToken(ctx context.Context, token *Token) error {
 		TableName: aws.String(c.TableName), Item: item,
 	})
 	if err != nil {
-		log.Errorw("Couldn't add item to table", zap.Error(err))
+		return fmt.Errorf("failed to put item: %w", err)
 	}
-	return err
+	log.Debug("Put token")
+	return nil
 }
 
-func (c *client) GetToken(ctx context.Context, telegramId int64) (Token, error) {
+func (c *client) GetToken(ctx context.Context, telegramId int64) (*Token, error) {
 	log := zap.S().With("telegram_id", telegramId)
 	log.Debug("Getting token")
-	user := Token{TelegramId: telegramId}
+
+	token := Token{TelegramId: telegramId}
 	getItemInput := dynamodb.GetItemInput{
-		Key: user.GetKey(), TableName: aws.String(c.TableName),
+		Key: token.GetKey(), TableName: aws.String(c.TableName),
 	}
+
 	response, err := c.DynamoDbClient.GetItem(ctx, &getItemInput)
 	if err != nil {
-		log.Errorw("Couldn't get token", zap.Error(err))
-	} else {
-		err = attributevalue.UnmarshalMap(response.Item, &user)
-		if err != nil {
-			log.Errorw("Couldn't unmarshal response", zap.Error(err))
-		}
+		log.Errorw("Couldn't get info about token", zap.Error(err))
+		return nil, fmt.Errorf("failed to get token from DynamoDB: %w", err)
 	}
+
+	if response.Item == nil {
+		log.Debug("Token not found")
+		return nil, nil
+	}
+
+	err = attributevalue.UnmarshalMap(response.Item, &token)
+	if err != nil {
+		log.Errorw("Couldn't unmarshal response", zap.Error(err))
+		return nil, fmt.Errorf("failed to unmarshal token data: %w", err)
+	}
+
 	log.Debug("Got token")
-	return user, err
+	return &token, nil
 }
 
 func (c *client) DeleteToken(ctx context.Context, telegramId int64) error {
 	log := c.log.With("telegram_id", telegramId)
+	log.Debug("Deleting token")
 	_, err := c.DynamoDbClient.DeleteItem(context.TODO(), &dynamodb.DeleteItemInput{
 		TableName: aws.String(c.TableName), Key: Token{TelegramId: telegramId}.GetKey(),
 	})
 	if err != nil {
 		log.Errorw("Couldn't delete token from the table", zap.Error(err))
+		return fmt.Errorf("failed to delete token from DynamoDB: %w", err)
 	}
-	return err
+	log.Debug("Deleted token")
+	return nil
 }
 
 func (c *client) DeleteTable() error {

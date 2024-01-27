@@ -3,6 +3,7 @@ package usersdb
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -30,7 +31,7 @@ type client struct {
 func NewClient(cfg Config) (Client, error) {
 	log := zap.S().With("table", cfg.TableName)
 
-	log.Debugln("Creating DynamoDB client")
+	log.Debug("Creating DynamoDB client")
 	DynamoDbClient := dynamodb.NewFromConfig(
 		aws.Config{
 			Region:      "ru-central1",
@@ -51,11 +52,10 @@ func NewClient(cfg Config) (Client, error) {
 			zap.S().Panicw("Failed to create table", zap.Error(err))
 		}
 	}
-	log.Info("Ensured table exists")
+	log.Debug("Ensured table exists")
 	return client, nil
 }
 
-// TableExists determines whether a DynamoDB table exists.
 func (c *client) tableExists() (bool, error) {
 	log := zap.S().With("table", c.TableName)
 	exists := true
@@ -65,7 +65,6 @@ func (c *client) tableExists() (bool, error) {
 	if err != nil {
 		var notFoundEx *types.ResourceNotFoundException
 		if errors.As(err, &notFoundEx) {
-			log.Infoln("Table doesn't exist")
 			err = nil
 		} else {
 			log.Errorw("Couldn't determine existence of table", zap.Error(err))
@@ -75,10 +74,6 @@ func (c *client) tableExists() (bool, error) {
 	return exists, err
 }
 
-// CreateUserTable creates a DynamoDB table with a composite primary key defined as
-// a string sort key named `title`, and a numeric partition key named `year`.
-// This function uses NewTableExistsWaiter to wait for the table to be created by
-// DynamoDB before it returns.
 func (c *client) createUserTable() (*types.TableDescription, error) {
 	log := zap.S().With("table", c.TableName)
 
@@ -111,13 +106,12 @@ func (c *client) createUserTable() (*types.TableDescription, error) {
 		tableDesc = table.TableDescription
 	}
 
-	log.Infoln("Created table")
+	log.Debug("Created table")
 
 	return tableDesc, err
 }
 
-// AddUser adds a user the DynamoDB table.
-func (c *client) CreateUser(ctx context.Context, user *User) error {
+func (c *client) PutUser(ctx context.Context, user *User) error {
 	log := c.log.With("user", user)
 	log.Debug("Adding user")
 	item, err := attributevalue.MarshalMap(user)
@@ -128,15 +122,12 @@ func (c *client) CreateUser(ctx context.Context, user *User) error {
 		TableName: aws.String(c.TableName), Item: item,
 	})
 	if err != nil {
-		log.Errorw("Couldn't add item to table", zap.Error(err))
+		return fmt.Errorf("failed to put item: %w", err)
 	}
-	log.Debug("Added user")
-	return err
+	log.Debug("Put user")
+	return nil
 }
 
-// UpdateUser updates the status of a user that already exists in the
-// DynamoDB table. This function uses the `expression` package to build the update
-// expression.
 func (c *client) UpdateUser(ctx context.Context, user *User) (map[string]interface{}, error) {
 	log := c.log.With("user", user)
 	log.Debug("Updating user")
@@ -153,57 +144,60 @@ func (c *client) UpdateUser(ctx context.Context, user *User) (map[string]interfa
 	expr, err := expression.NewBuilder().WithUpdate(update).Build()
 
 	if err != nil {
-		log.Errorw("Couldn't build expression for update", zap.Error(err))
-	} else {
-		updateItemInput := dynamodb.UpdateItemInput{
-			TableName:                 aws.String(c.TableName),
-			Key:                       user.GetKey(),
-			ExpressionAttributeNames:  expr.Names(),
-			ExpressionAttributeValues: expr.Values(),
-			UpdateExpression:          expr.Update(),
-			ReturnValues:              types.ReturnValueUpdatedNew,
-		}
-		response, err = c.DynamoDbClient.UpdateItem(ctx, &updateItemInput)
-		if err != nil {
-			log.Errorw("Couldn't update user", zap.Error(err))
-		} else {
-			err = attributevalue.UnmarshalMap(response.Attributes, &attributeMap)
-			if err != nil {
-				log.Errorw("Couldn't unmarshall update response", zap.Error(err))
-			}
-		}
+		return nil, fmt.Errorf("failed to build update expression: %w", err)
 	}
-	return attributeMap, err
+	updateItemInput := dynamodb.UpdateItemInput{
+		TableName:                 aws.String(c.TableName),
+		Key:                       user.GetKey(),
+		ExpressionAttributeNames:  expr.Names(),
+		ExpressionAttributeValues: expr.Values(),
+		UpdateExpression:          expr.Update(),
+		ReturnValues:              types.ReturnValueUpdatedNew,
+	}
+	response, err = c.DynamoDbClient.UpdateItem(ctx, &updateItemInput)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update item: %w", err)
+	}
+	err = attributevalue.UnmarshalMap(response.Attributes, &attributeMap)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	return attributeMap, nil
 }
 
-// GetUser gets user data from the DynamoDB table by using the primary key id
 func (c *client) GetUser(ctx context.Context, telegramId int64) (*User, error) {
 	log := zap.S().With("telegram_id", telegramId)
 	log.Debug("Getting user")
+
 	user := User{TelegramId: telegramId}
 	getItemInput := dynamodb.GetItemInput{
 		Key: user.GetKey(), TableName: aws.String(c.TableName),
 	}
+
 	response, err := c.DynamoDbClient.GetItem(ctx, &getItemInput)
 	if err != nil {
 		log.Errorw("Couldn't get info about user", zap.Error(err))
-	} else {
-		err = attributevalue.UnmarshalMap(response.Item, &user)
-		if err != nil {
-			log.Errorw("Couldn't unmarshal response", zap.Error(err))
-		}
+		return nil, fmt.Errorf("failed to get user from DynamoDB: %w", err)
 	}
+
 	if response.Item == nil {
-		log.Debugw("User not found")
+		log.Debug("User not found")
 		return nil, nil
 	}
+
+	err = attributevalue.UnmarshalMap(response.Item, &user)
+	if err != nil {
+		log.Errorw("Couldn't unmarshal response", zap.Error(err))
+		return nil, fmt.Errorf("failed to unmarshal user data: %w", err)
+	}
+
 	log.Debugw("Got user", "user", user)
-	return &user, err
+	return &user, nil
 }
 
-// DeleteUser removes a user from the DynamoDB table.
 func (c *client) DeleteUser(user User) error {
-	log := c.log.With("user_id", user.TelegramId)
+	log := c.log.With("telegram_id", user.TelegramId)
 	_, err := c.DynamoDbClient.DeleteItem(context.TODO(), &dynamodb.DeleteItemInput{
 		TableName: aws.String(c.TableName), Key: user.GetKey(),
 	})
@@ -213,7 +207,6 @@ func (c *client) DeleteUser(user User) error {
 	return err
 }
 
-// DeleteTable deletes the DynamoDB table and all of its data.
 func (c *client) DeleteTable() error {
 	log := c.log
 	_, err := c.DynamoDbClient.DeleteTable(context.TODO(), &dynamodb.DeleteTableInput{
