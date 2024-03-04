@@ -6,6 +6,22 @@ from langchain_openai import ChatOpenAI
 
 
 system_template = """ 
+    Parse all position in bill, output as json format:
+    Clarification: just output only json without any other symbols
+    Example:
+    {{
+        "items":
+        [ 
+            {{
+                "id" : порядковый номер (int),
+                "name" : наименование позиции (str),
+                "price" : цена за штуку (float),
+                "count" : количество (int),
+                "total" : всего (float),
+            }}
+        ]
+        "total" : Общая смета (float)
+    }}
 """
 
 def _get_messages_from_image(base64_image) -> list[BaseMessage]:
