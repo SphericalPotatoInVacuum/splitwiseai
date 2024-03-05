@@ -13,9 +13,12 @@ class JSONParser(BaseOutputParser):
         except json.JSONDecodeError:
             raise ValueError("Invalid JSON format")
 
-def _image_encoder(kwargs):
-    image_path = kwargs['image_path']
-    image_percent_resolution = kwargs['image_res']
+def _image_encoder(image_path):
+    with open(image_path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode('utf-8')
+
+def _image_encoder_with_resolution(image_path, config):
+    image_percent_resolution = config['image_res']
     
     with open(image_path, "rb") as image_file:
         img = Image.open(image_file)
