@@ -1,8 +1,6 @@
 from chains import picture_recognition_chain
-from utils import encode_image
 
 
-async def picture_recognition(image_path) -> list[dict[str, str]]:
-    base64_image = encode_image(image_path)
-    qna_sequence = await picture_recognition_chain.ainvoke(base64_image)
+async def picture_recognition(image_path, image_resolution=1.0) -> list[dict[str, str]]:
+    qna_sequence = await picture_recognition_chain.ainvoke({"image_path" : image_path, "image_res" : image_resolution})
     return qna_sequence
