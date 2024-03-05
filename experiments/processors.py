@@ -16,6 +16,8 @@ class JSONParser(BaseOutputParser):
 
 def _image_encoder(image_path, config):
     max_size_px = config['max_size']
+    image_format = config['image_format']
+    image_percent_quality = config['image_percent_quality']
     
     with open(image_path, "rb") as image_file:
         img = Image.open(image_file)
@@ -30,7 +32,7 @@ def _image_encoder(image_path, config):
                 img = img.resize((new_width, new_height), Image.BICUBIC)
 
         buffered = BytesIO()
-        img.save(buffered, format="PNG", quality=100)
+        img.save(buffered, format=image_format, quality=int(image_percent_quality * 100))
         return base64.b64encode(buffered.getvalue()).decode('utf-8')
 
 
