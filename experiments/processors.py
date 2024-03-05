@@ -13,17 +13,24 @@ class JSONParser(BaseOutputParser):
         except json.JSONDecodeError:
             raise ValueError("Invalid JSON format")
 
-def _image_encoder(image_path):
-    with open(image_path, "rb") as image_file:
-        return base64.b64encode(image_file.read()).decode('utf-8')
 
-def _image_encoder_with_resolution(image_path, config):
-    image_percent_resolution = config['image_res']
+def _image_encoder(image_path, config):
+    max_size_px = config['max_size']
     
     with open(image_path, "rb") as image_file:
         img = Image.open(image_file)
+
+        if max_size_px:
+            width, height = img.size
+            max_dimension = max(width, height)
+            if max_dimension > max_size_px:
+                ratio = max_size_px / max_dimension
+                new_width = int(width * ratio)
+                new_height = int(height * ratio)
+                img = img.resize((new_width, new_height), Image.BICUBIC)
+
         buffered = BytesIO()
-        img.save(buffered, format="JPEG", quality=int(image_percent_resolution * 100))
+        img.save(buffered, format="PNG", quality=100)
         return base64.b64encode(buffered.getvalue()).decode('utf-8')
 
 

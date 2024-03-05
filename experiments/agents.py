@@ -2,7 +2,7 @@ from chains import picture_recognition_chain
 
 CONFIGS = {
     "picture_recognition": {
-        "image_res" : 1.0
+        "max_size" : 1020
     }
 }
 
