@@ -24,6 +24,7 @@ system_template = """
     }}
 """
 
+
 def _get_messages_from_image(base64_image) -> list[BaseMessage]:
     return [
         SystemMessage(content=cleandoc(system_template)),
@@ -36,7 +37,6 @@ def _get_messages_from_image(base64_image) -> list[BaseMessage]:
             }],
         ),
     ]
-
 
 
 picture_recognition_template = RunnableLambda(_get_messages_from_image)
