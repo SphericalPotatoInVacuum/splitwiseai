@@ -12,6 +12,7 @@ import (
 type Config struct {
 	ClientId     string `env:"SPLITWISE_CLIENT_ID"`
 	ClientSecret string `env:"SPLITWISE_CLIENT_SECRET"`
+	RedirectURL  string `env:"SPLITWISE_REDIRECT_URL"`
 }
 
 type client struct {
@@ -73,7 +74,7 @@ func NewClient(cfg Config) (Client, error) {
 				AuthURL:  "https://secure.splitwise.com/oauth/authorize",
 				TokenURL: "https://secure.splitwise.com/oauth/token",
 			},
-			RedirectURL: "https://primary-mutual-peacock.ngrok-free.app/splitwise/callback",
+			RedirectURL: cfg.RedirectURL,
 		},
 	}, nil
 }

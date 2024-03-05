@@ -1,6 +1,6 @@
-module splitwiseai
+module github.com/SphericalPotatoInVacuum/splitwiseai
 
-go 1.21.5
+go 1.21.0
 
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/ai/azopenai v0.4.1
@@ -14,6 +14,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.26.8
 	github.com/caarlos0/env/v10 v10.0.0
 	github.com/getkin/kin-openapi v0.122.0
+	github.com/looplab/fsm v1.0.1
 	github.com/oapi-codegen/runtime v1.1.0
 	go.uber.org/zap v1.26.0
 	golang.org/x/oauth2 v0.16.0

@@ -7,7 +7,7 @@ import (
 	"mime/multipart"
 	"net/http"
 
-	"splitwiseai/internal/clients/ocr/mindeeapi"
+	"github.com/SphericalPotatoInVacuum/splitwiseai/internal/clients/ocr/mindeeapi"
 
 	"go.uber.org/zap"
 )

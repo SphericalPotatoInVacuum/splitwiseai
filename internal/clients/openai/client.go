@@ -5,7 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"splitwiseai/internal/clients/ocr"
+
+	"github.com/SphericalPotatoInVacuum/splitwiseai/internal/clients/ocr"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/ai/azopenai"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"

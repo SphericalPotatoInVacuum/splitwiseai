@@ -6,7 +6,7 @@ import (
 	"io"
 	"net/http"
 
-	"splitwiseai/internal/clients"
+	"github.com/SphericalPotatoInVacuum/splitwiseai/internal/clients"
 
 	"github.com/PaulSonOfLars/gotgbot/v2"
 	"github.com/caarlos0/env/v10"
@@ -35,7 +35,7 @@ func main() {
 	client := &client{Clients: clients}
 
 	http.HandleFunc("/", client.handleUpdate)
-	http.HandleFunc("/splitwise/callback", client.handleSplitwiseCallback)
+	http.HandleFunc("/splitwise", client.handleSplitwiseCallback)
 
 	zap.S().Infow("Starting server", "port", 8080)
 
@@ -44,7 +44,10 @@ func main() {
 
 func (c *client) handleSplitwiseCallback(response http.ResponseWriter, req *http.Request) {
 	zap.S().Debug("Handling splitwise callback")
-	err := c.Telegram().Auth(req.RequestURI)
+	values := req.URL.Query()
+	code := values.Get("code")
+	state := values.Get("state")
+	err := c.Telegram().Auth(req.Context(), code, state)
 	if err != nil {
 		zap.S().Errorw("error handling splitwise callback", zap.Error(err))
 	}
@@ -67,5 +70,5 @@ func (c *client) handleUpdate(response http.ResponseWriter, req *http.Request) {
 		response.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	c.Telegram().HandleUpdate(update)
+	c.Telegram().HandleUpdate(req.Context(), update)
 }

@@ -2,12 +2,13 @@ package clients
 
 import (
 	"fmt"
-	"splitwiseai/internal/clients/db/tokensdb"
-	"splitwiseai/internal/clients/db/usersdb"
-	"splitwiseai/internal/clients/ocr"
-	"splitwiseai/internal/clients/openai"
-	"splitwiseai/internal/clients/splitwise"
-	"splitwiseai/internal/clients/telegram"
+
+	"github.com/SphericalPotatoInVacuum/splitwiseai/internal/clients/db/tokensdb"
+	"github.com/SphericalPotatoInVacuum/splitwiseai/internal/clients/db/usersdb"
+	"github.com/SphericalPotatoInVacuum/splitwiseai/internal/clients/ocr"
+	"github.com/SphericalPotatoInVacuum/splitwiseai/internal/clients/openai"
+	"github.com/SphericalPotatoInVacuum/splitwiseai/internal/clients/splitwise"
+	"github.com/SphericalPotatoInVacuum/splitwiseai/internal/clients/telegram"
 )
 
 type Config struct {

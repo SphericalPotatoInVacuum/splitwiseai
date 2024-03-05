@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"os"
 )
 
@@ -37,18 +36,6 @@ func parseState(state string) (int64, string, error) {
 		return -1, "", fmt.Errorf("invalid state format")
 	}
 	return telegramId, salt, nil
-}
-
-func parseOAuth2RedirectURL(redirectURL string) (string, string, error) {
-	parsedURL, err := url.Parse(redirectURL)
-	if err != nil {
-		return "", "", err
-	}
-
-	queryValues := parsedURL.Query()
-	code := queryValues.Get("code")
-	state := queryValues.Get("state")
-	return code, state, nil
 }
 
 func downloadFile(url string) (tempFilePath string, err error) {

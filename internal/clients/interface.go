@@ -1,8 +1,8 @@
 package clients
 
 import (
-	"splitwiseai/internal/clients/openai"
-	"splitwiseai/internal/clients/telegram"
+	"github.com/SphericalPotatoInVacuum/splitwiseai/internal/clients/openai"
+	"github.com/SphericalPotatoInVacuum/splitwiseai/internal/clients/telegram"
 )
 
 type Clients interface {
