@@ -5,6 +5,7 @@ import (
 
 	"github.com/SphericalPotatoInVacuum/splitwiseai/internal/clients/db/tokensdb"
 	"github.com/SphericalPotatoInVacuum/splitwiseai/internal/clients/db/usersdb"
+	"github.com/SphericalPotatoInVacuum/splitwiseai/internal/clients/mq/tgupdatesmq"
 	"github.com/SphericalPotatoInVacuum/splitwiseai/internal/clients/ocr"
 	"github.com/SphericalPotatoInVacuum/splitwiseai/internal/clients/openai"
 	"github.com/SphericalPotatoInVacuum/splitwiseai/internal/clients/splitwise"
@@ -12,19 +13,21 @@ import (
 )
 
 type Config struct {
-	MindeeCfg    ocr.Config
-	SplitwiseCfg splitwise.Config
-	UsersDbCfg   usersdb.Config
-	TokensDbCfg  tokensdb.Config
-	TelegramCfg  telegram.Config
-	OpenAICfg    openai.Config
+	MindeeCfg            ocr.Config
+	SplitwiseCfg         splitwise.Config
+	UsersDbCfg           usersdb.Config
+	TokensDbCfg          tokensdb.Config
+	TelegramCfg          telegram.Config
+	OpenAICfg            openai.Config
+	TelegramUpdatesMQCfg tgupdatesmq.Config
 
 	OcrClient string `env:"OCR_CLIENT"`
 }
 
 type clients struct {
-	oai      openai.Client
-	telegram telegram.Client
+	oai         openai.Client
+	telegram    telegram.Client
+	tgUpdatesMQ tgupdatesmq.Client
 }
 
 func NewClients(cfg Config) (Clients, error) {
@@ -71,9 +74,15 @@ func NewClients(cfg Config) (Clients, error) {
 		return nil, fmt.Errorf("failed to create telegram client: %w", err)
 	}
 
+	tgUpdatesMQClient, err := tgupdatesmq.NewClient(cfg.TelegramUpdatesMQCfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create tgupdatesmq client: %w", err)
+	}
+
 	return &clients{
-		telegram: telegramClient,
-		oai:      oaiClient,
+		telegram:    telegramClient,
+		oai:         oaiClient,
+		tgUpdatesMQ: tgUpdatesMQClient,
 	}, nil
 }
 
@@ -83,4 +92,8 @@ func (c *clients) Telegram() telegram.Client {
 
 func (c *clients) OpenAI() openai.Client {
 	return c.oai
+}
+
+func (c *clients) TgUpdatesMQ() tgupdatesmq.Client {
+	return c.tgUpdatesMQ
 }

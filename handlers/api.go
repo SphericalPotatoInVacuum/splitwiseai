@@ -2,10 +2,8 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
-	"github.com/PaulSonOfLars/gotgbot/v2"
 	"github.com/SphericalPotatoInVacuum/splitwiseai/handlers/ext"
 	"go.uber.org/zap"
 )
@@ -55,13 +53,12 @@ func HandleTelegramUpdate(ctx context.Context, event APIGatewayRequest) (*APIGat
 	deps := ext.Init()
 	var err error
 
-	update := &gotgbot.Update{}
-	err = json.Unmarshal([]byte(event.Body), update)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse update: %v", err)
-	}
+	zap.S().Infow("Handling telegram update", "event", event, "context", ctx)
 
-	deps.Clients.Telegram().HandleUpdate(ctx, update)
+	err = deps.Clients.TgUpdatesMQ().PublishMessage(ctx, event.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to publish message: %v", err)
+	}
 
 	return &APIGatewayResponse{
 		StatusCode:      200,

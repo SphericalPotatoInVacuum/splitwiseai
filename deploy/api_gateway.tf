@@ -12,7 +12,7 @@ resource "yandex_api_gateway" "splitwise_api_gateway" {
           operationId: telegram-update
           x-yc-apigateway-integration:
             type: cloud_functions
-            function_id: ${yandex_function.tg_bot.id}
+            function_id: ${yandex_function.tg_update_handler.id}
             service_account_id: ${yandex_iam_service_account.gateway_api_sa.id}
       /splitwise:
         get:
@@ -20,7 +20,7 @@ resource "yandex_api_gateway" "splitwise_api_gateway" {
           operationId: splitwise-request
           x-yc-apigateway-integration:
             type: cloud_functions
-            function_id: ${yandex_function.tg_bot.id}
+            function_id: ${yandex_function.splitwise_oauth.id}
             service_account_id: ${yandex_iam_service_account.gateway_api_sa.id}
   EOT
   custom_domains {

@@ -122,7 +122,7 @@ func filterUserUpdates(message *gotgbot.Message) bool {
 }
 
 func (c *client) preprocess(b *gotgbot.Bot, ctx *ext.Context) error {
-	c.log.Debug("preprocessing")
+	c.log.Debug("Preprocessing user update")
 	user, err := c.deps.UsersDb.GetUser(context.Background(), ctx.EffectiveUser.Id)
 	if err != nil {
 		return fmt.Errorf("failed to get user: %w", err)
@@ -244,6 +244,8 @@ func (c *client) preprocess(b *gotgbot.Bot, ctx *ext.Context) error {
 }
 
 func (c *client) postprocess(b *gotgbot.Bot, ctx *ext.Context) error {
+	c.log.Debug("Postprocessing user update")
+
 	user := ctx.Data["user"].(*usersdb.User)
 	userDirty := ctx.Data["user_dirty"].(bool)
 
@@ -251,6 +253,7 @@ func (c *client) postprocess(b *gotgbot.Bot, ctx *ext.Context) error {
 		return nil
 	}
 
+	c.log.Debug("User state is dirty")
 	_, err := c.deps.UsersDb.UpdateUser(context.Background(), user)
 	if err != nil {
 		return fmt.Errorf("failed to update user: %w", err)
@@ -289,22 +292,19 @@ func (c *client) makeUserProfileString(user *usersdb.User) string {
 }
 
 func (c *client) HandleUpdate(ctx context.Context, update *gotgbot.Update) error {
-	log := c.log.With(ctx)
-	log.Debugw("handling update", "update", update)
+	c.log.Debugw("Handling update", "update", update)
 	return c.dispatcher.ProcessUpdate(c.bot, update, map[string]interface{}{"ctx": ctx})
 }
 
 func (c *client) Auth(ctx context.Context, code string, state string) error {
-	log := c.log.With(ctx)
-
-	log.Debugw("handling splitwise callback", "state", state)
+	c.log.Debugw("Handling splitwise callback", "state", state)
 
 	telegramId, _, err := parseState(state)
 	if err != nil {
 		return fmt.Errorf("failed to parse state: %w", err)
 	}
 
-	user, err := c.deps.UsersDb.GetUser(context.Background(), telegramId)
+	user, err := c.deps.UsersDb.GetUser(ctx, telegramId)
 	if err != nil {
 		return fmt.Errorf("failed to get user: %w", err)
 	}
@@ -318,12 +318,12 @@ func (c *client) Auth(ctx context.Context, code string, state string) error {
 		return fmt.Errorf("invalid state")
 	}
 
-	tok, err := c.deps.Splitwise.GetOAuthToken(context.Background(), code)
+	tok, err := c.deps.Splitwise.GetOAuthToken(ctx, code)
 	if err != nil {
 		return fmt.Errorf("failed to get oauth token: %w", err)
 	}
 
-	err = c.deps.TokensDb.PutToken(context.Background(), &tokensdb.Token{TelegramId: telegramId, Token: tok})
+	err = c.deps.TokensDb.PutToken(ctx, &tokensdb.Token{TelegramId: telegramId, Token: tok})
 	if err != nil {
 		return fmt.Errorf("failed to put token: %w", err)
 	}
