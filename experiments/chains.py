@@ -6,6 +6,7 @@ from prompts.names_aligning import names_aligning_template
 from operator import itemgetter
 from models import chat_model
 from processors import json_parser, image_encoder
+from langchain_core.runnables import RunnablePassthrough
 
 picture_recognition_chain = (
     image_encoder
@@ -13,6 +14,11 @@ picture_recognition_chain = (
     | chat_model.bind(model=GPT_4_VISION_NAME)
     | json_parser
 )
+voice_extraction_chain = (
+    {"description": RunnablePassthrough()} 
+    | voice_extraction_template 
+    | chat_model.bind(model=GPT_4_NAME) 
+    | json_parser
+)
 voice_aligning_chain = voice_aligning_template | chat_model.bind(model=GPT_4_NAME) | json_parser
-voice_extraction_chain = voice_extraction_template | chat_model.bind(model=GPT_4_NAME) | json_parser
 names_aligning_chain = names_aligning_template | chat_model.bind(model=GPT_3_NAME) | json_parser

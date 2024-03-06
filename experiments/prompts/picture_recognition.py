@@ -6,7 +6,7 @@ from langchain_openai import ChatOpenAI
 
 
 system_template = """ 
-    Parse all position in bill, output as json format:
+    Goal: Parse all position in bill, output as json format:
     Clarification: just output only json without any other symbols
     Example:
     {{

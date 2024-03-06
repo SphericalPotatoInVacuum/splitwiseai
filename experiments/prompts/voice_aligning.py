@@ -5,7 +5,6 @@ system_template = """
 """
 
 human_template = """
-
 """
     
 
