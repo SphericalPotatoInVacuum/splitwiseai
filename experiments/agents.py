@@ -1,4 +1,4 @@
-from chains import picture_recognition_chain, voice_extraction_chain
+from chains import *
 
 CONFIGS = {
     "picture_recognition": {
@@ -16,6 +16,18 @@ async def picture_recognition(image_path) -> list[dict[str, str]]:
 
 
 async def voice_extraction(order_description) -> list[dict[str, str]]:
-    response = await voice_extraction_chain.ainvoke(order_description)
+    response = await voice_extraction_chain.ainvoke({"description":order_description})
     return response
 
+
+async def voice_aligning(guests_description, system_order) -> list[dict[str, str]]:
+    short_system_order = [
+        {"id" : r["id"], "name" : r["name"], "count" : r["count"]} for r in system_order["items"]
+    ]
+    
+    response = await voice_aligning_chain.ainvoke({
+        "guests_description":guests_description,
+        "system_order" : short_system_order
+    })
+    response = [{'id' : r['id'], 'users' : r['guests']} for r in response]
+    return response
