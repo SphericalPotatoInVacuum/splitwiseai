@@ -38,7 +38,6 @@ func NewClient(cfg Config) (*client, error) {
 				}, nil
 			},
 		)),
-		config.WithClientLogMode(aws.LogRequestWithBody|aws.LogResponseWithBody|aws.LogRetries),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load AWS configuration: %w", err)
