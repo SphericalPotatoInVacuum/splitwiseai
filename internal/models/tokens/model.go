@@ -7,59 +7,46 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"go.uber.org/zap"
 )
 
-type Config struct {
-	Endpoint     string `env:"DB_ENDPOINT"`
-	AwsKeyId     string `env:"DB_AWS_KEY_ID"`
-	AwsSecretKey string `env:"DB_AWS_SECRET_KEY"`
-	TableName    string `env:"TOKENS_TABLE_NAME"`
+type model struct {
+	db        *dynamodb.Client
+	tableName string
+	log       *zap.SugaredLogger
 }
 
-type client struct {
-	DynamoDbClient *dynamodb.Client
-	TableName      string
-	log            *zap.SugaredLogger
-}
+func NewModel(db *dynamodb.Client, tableName string) (Model, error) {
+	log := zap.S().With("table", tableName)
 
-func NewClient(cfg Config) (Client, error) {
-	log := zap.S().With("table", cfg.TableName)
+	client := &model{db: db, tableName: tableName, log: log}
 
-	log.Debug("Creating DynamoDB client")
-	DynamoDbClient := dynamodb.NewFromConfig(
-		aws.Config{
-			Region:      "ru-central1",
-			Credentials: credentials.NewStaticCredentialsProvider(cfg.AwsKeyId, cfg.AwsSecretKey, ""),
-		},
-		func(o *dynamodb.Options) {
-			o.BaseEndpoint = &cfg.Endpoint
-		},
-	)
-	client := &client{DynamoDbClient: DynamoDbClient, TableName: cfg.TableName, log: log}
 	exists, err := client.tableExists()
 	if err != nil {
 		return nil, fmt.Errorf("failed to check if table exists: %w", err)
 	}
+
 	if !exists {
+		log.Debug("Table doesn't exist, creating")
 		_, err = client.createTable()
 		if err != nil {
 			return nil, fmt.Errorf("failed to create table: %w", err)
 		}
 	}
+
 	log.Debug("Ensured table exists")
+
 	return client, nil
 }
 
-func (c *client) tableExists() (bool, error) {
-	log := zap.S().With("table", c.TableName)
+func (c *model) tableExists() (bool, error) {
+	log := zap.S().With("table", c.tableName)
 	exists := true
-	_, err := c.DynamoDbClient.DescribeTable(
-		context.TODO(), &dynamodb.DescribeTableInput{TableName: aws.String(c.TableName)},
+	_, err := c.db.DescribeTable(
+		context.TODO(), &dynamodb.DescribeTableInput{TableName: aws.String(c.tableName)},
 	)
 	if err != nil {
 		var notFoundEx *types.ResourceNotFoundException
@@ -73,11 +60,11 @@ func (c *client) tableExists() (bool, error) {
 	return exists, err
 }
 
-func (c *client) createTable() (*types.TableDescription, error) {
-	log := zap.S().With("table", c.TableName)
+func (c *model) createTable() (*types.TableDescription, error) {
+	log := zap.S().With("table", c.tableName)
 
 	var tableDesc *types.TableDescription
-	table, err := c.DynamoDbClient.CreateTable(context.TODO(), &dynamodb.CreateTableInput{
+	table, err := c.db.CreateTable(context.TODO(), &dynamodb.CreateTableInput{
 		AttributeDefinitions: []types.AttributeDefinition{{
 			AttributeName: aws.String("telegram_id"),
 			AttributeType: types.ScalarAttributeTypeN,
@@ -86,7 +73,7 @@ func (c *client) createTable() (*types.TableDescription, error) {
 			AttributeName: aws.String("telegram_id"),
 			KeyType:       types.KeyTypeHash,
 		}},
-		TableName: aws.String(c.TableName),
+		TableName: aws.String(c.tableName),
 		ProvisionedThroughput: &types.ProvisionedThroughput{
 			ReadCapacityUnits:  aws.Int64(10),
 			WriteCapacityUnits: aws.Int64(10),
@@ -96,9 +83,9 @@ func (c *client) createTable() (*types.TableDescription, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create the table: %w", err)
 	} else {
-		waiter := dynamodb.NewTableExistsWaiter(c.DynamoDbClient)
+		waiter := dynamodb.NewTableExistsWaiter(c.db)
 		err = waiter.Wait(context.TODO(), &dynamodb.DescribeTableInput{
-			TableName: aws.String(c.TableName)}, 5*time.Minute)
+			TableName: aws.String(c.tableName)}, 5*time.Minute)
 		if err != nil {
 			return nil, fmt.Errorf("failed to wait for table existance: %w", err)
 		}
@@ -110,7 +97,7 @@ func (c *client) createTable() (*types.TableDescription, error) {
 	return tableDesc, err
 }
 
-func (c *client) PutToken(ctx context.Context, token *Token) error {
+func (c *model) PutToken(ctx context.Context, token *Token) error {
 	log := c.log.With("telegram_id", token.TelegramId)
 	log.Debug("Putting token")
 
@@ -118,8 +105,8 @@ func (c *client) PutToken(ctx context.Context, token *Token) error {
 	if err != nil {
 		panic(err)
 	}
-	_, err = c.DynamoDbClient.PutItem(ctx, &dynamodb.PutItemInput{
-		TableName: aws.String(c.TableName), Item: item,
+	_, err = c.db.PutItem(ctx, &dynamodb.PutItemInput{
+		TableName: aws.String(c.tableName), Item: item,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to put item: %w", err)
@@ -128,16 +115,16 @@ func (c *client) PutToken(ctx context.Context, token *Token) error {
 	return nil
 }
 
-func (c *client) GetToken(ctx context.Context, telegramId int64) (*Token, error) {
+func (c *model) GetToken(ctx context.Context, telegramId int64) (*Token, error) {
 	log := zap.S().With("telegram_id", telegramId)
 	log.Debug("Getting token")
 
 	token := Token{TelegramId: telegramId}
 	getItemInput := dynamodb.GetItemInput{
-		Key: token.GetKey(), TableName: aws.String(c.TableName),
+		Key: token.GetKey(), TableName: aws.String(c.tableName),
 	}
 
-	response, err := c.DynamoDbClient.GetItem(ctx, &getItemInput)
+	response, err := c.db.GetItem(ctx, &getItemInput)
 	if err != nil {
 		log.Errorw("Couldn't get info about token", zap.Error(err))
 		return nil, fmt.Errorf("failed to get token from DynamoDB: %w", err)
@@ -158,11 +145,11 @@ func (c *client) GetToken(ctx context.Context, telegramId int64) (*Token, error)
 	return &token, nil
 }
 
-func (c *client) DeleteToken(ctx context.Context, telegramId int64) error {
+func (c *model) DeleteToken(ctx context.Context, telegramId int64) error {
 	log := c.log.With("telegram_id", telegramId)
 	log.Debug("Deleting token")
-	_, err := c.DynamoDbClient.DeleteItem(context.TODO(), &dynamodb.DeleteItemInput{
-		TableName: aws.String(c.TableName), Key: Token{TelegramId: telegramId}.GetKey(),
+	_, err := c.db.DeleteItem(context.TODO(), &dynamodb.DeleteItemInput{
+		TableName: aws.String(c.tableName), Key: Token{TelegramId: telegramId}.GetKey(),
 	})
 	if err != nil {
 		log.Errorw("Couldn't delete token from the table", zap.Error(err))
@@ -172,12 +159,12 @@ func (c *client) DeleteToken(ctx context.Context, telegramId int64) error {
 	return nil
 }
 
-func (c *client) DeleteTable() error {
+func (c *model) DeleteTable() error {
 	log := c.log
-	_, err := c.DynamoDbClient.DeleteTable(context.TODO(), &dynamodb.DeleteTableInput{
-		TableName: aws.String(c.TableName)})
+	_, err := c.db.DeleteTable(context.TODO(), &dynamodb.DeleteTableInput{
+		TableName: aws.String(c.tableName)})
 	if err != nil {
-		log.Errorw("Couldn't delete table", c.TableName, zap.Error(err))
+		log.Errorw("Couldn't delete table", c.tableName, zap.Error(err))
 	}
 	return err
 }

@@ -3,20 +3,20 @@ package clients
 import (
 	"fmt"
 
-	"github.com/SphericalPotatoInVacuum/splitwiseai/internal/clients/db/tokensdb"
-	"github.com/SphericalPotatoInVacuum/splitwiseai/internal/clients/db/usersdb"
+	"github.com/SphericalPotatoInVacuum/splitwiseai/internal/clients/db"
 	"github.com/SphericalPotatoInVacuum/splitwiseai/internal/clients/mq/tgupdatesmq"
 	"github.com/SphericalPotatoInVacuum/splitwiseai/internal/clients/ocr"
 	"github.com/SphericalPotatoInVacuum/splitwiseai/internal/clients/openai"
 	"github.com/SphericalPotatoInVacuum/splitwiseai/internal/clients/splitwise"
 	"github.com/SphericalPotatoInVacuum/splitwiseai/internal/clients/telegram"
+	"github.com/SphericalPotatoInVacuum/splitwiseai/internal/models"
 )
 
 type Config struct {
 	MindeeCfg            ocr.Config
 	SplitwiseCfg         splitwise.Config
-	UsersDbCfg           usersdb.Config
-	TokensDbCfg          tokensdb.Config
+	DBCfg                db.Config
+	ModelsCfg            models.Config
 	TelegramCfg          telegram.Config
 	OpenAICfg            openai.Config
 	TelegramUpdatesMQCfg tgupdatesmq.Config
@@ -36,14 +36,11 @@ func NewClients(cfg Config) (Clients, error) {
 		return nil, fmt.Errorf("failed to create splitwise client: %w", err)
 	}
 
-	usersDbClient, err := usersdb.NewClient(cfg.UsersDbCfg)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create usersdb client: %w", err)
-	}
+	db := db.NewClient(cfg.DBCfg)
 
-	tokensDbClient, err := tokensdb.NewClient(cfg.TokensDbCfg)
+	ms, err := models.NewModels(db, cfg.ModelsCfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create tokensdb client: %w", err)
+		return nil, fmt.Errorf("failed to create models: %w", err)
 	}
 
 	oaiClient, err := openai.NewClient(cfg.OpenAICfg)
@@ -64,8 +61,7 @@ func NewClients(cfg Config) (Clients, error) {
 	}
 
 	telegramClient, err := telegram.NewClient(cfg.TelegramCfg, &telegram.BotDeps{
-		UsersDb:   usersDbClient,
-		TokensDb:  tokensDbClient,
+		Models:    ms,
 		Splitwise: splitwiseClient,
 		Ocr:       mindeeClient,
 		OpenAI:    oaiClient,

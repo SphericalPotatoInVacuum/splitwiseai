@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/SphericalPotatoInVacuum/splitwiseai/internal/clients/db/tokensdb"
-	"github.com/SphericalPotatoInVacuum/splitwiseai/internal/clients/db/usersdb"
 	"github.com/SphericalPotatoInVacuum/splitwiseai/internal/clients/ocr"
 	"github.com/SphericalPotatoInVacuum/splitwiseai/internal/clients/openai"
 	"github.com/SphericalPotatoInVacuum/splitwiseai/internal/clients/splitwise"
+	"github.com/SphericalPotatoInVacuum/splitwiseai/internal/models"
+	tokensdb "github.com/SphericalPotatoInVacuum/splitwiseai/internal/models/tokens"
+	usersdb "github.com/SphericalPotatoInVacuum/splitwiseai/internal/models/users"
 
 	"github.com/PaulSonOfLars/gotgbot/v2"
 	"github.com/PaulSonOfLars/gotgbot/v2/ext"
@@ -25,8 +26,7 @@ type Config struct {
 }
 
 type BotDeps struct {
-	UsersDb   usersdb.Client
-	TokensDb  tokensdb.Client
+	Models    models.Models
 	Ocr       ocr.Client
 	Splitwise splitwise.Client
 	OpenAI    openai.Client
@@ -123,7 +123,7 @@ func filterUserUpdates(message *gotgbot.Message) bool {
 
 func (c *client) preprocess(b *gotgbot.Bot, ctx *ext.Context) error {
 	c.log.Debug("Preprocessing user update")
-	user, err := c.deps.UsersDb.GetUser(context.Background(), ctx.EffectiveUser.Id)
+	user, err := c.deps.Models.User().GetUser(context.Background(), ctx.EffectiveUser.Id)
 	if err != nil {
 		return fmt.Errorf("failed to get user: %w", err)
 	}
@@ -200,7 +200,7 @@ func (c *client) preprocess(b *gotgbot.Bot, ctx *ext.Context) error {
 
 	splitwiseInstance, ok := c.deps.Splitwise.GetInstance(user.TelegramId)
 	if !ok {
-		token, err := c.deps.TokensDb.GetToken(context.Background(), user.TelegramId)
+		token, err := c.deps.Models.Token().GetToken(context.Background(), user.TelegramId)
 		if err != nil {
 			err = fmt.Errorf("failed to get token: %w", err)
 		} else {
@@ -226,7 +226,7 @@ func (c *client) preprocess(b *gotgbot.Bot, ctx *ext.Context) error {
 			if err != nil {
 				user.SplitwiseGroupId = -1
 				user.State = stateReady
-				_, err = c.deps.UsersDb.UpdateUser(context.Background(), user)
+				_, err = c.deps.Models.User().UpdateUser(context.Background(), user)
 				if err != nil {
 					return fmt.Errorf("failed to update user: %w", err)
 				}
@@ -254,7 +254,7 @@ func (c *client) postprocess(b *gotgbot.Bot, ctx *ext.Context) error {
 	}
 
 	c.log.Debug("User state is dirty")
-	_, err := c.deps.UsersDb.UpdateUser(context.Background(), user)
+	_, err := c.deps.Models.User().UpdateUser(context.Background(), user)
 	if err != nil {
 		return fmt.Errorf("failed to update user: %w", err)
 	}
@@ -304,7 +304,7 @@ func (c *client) Auth(ctx context.Context, code string, state string) error {
 		return fmt.Errorf("failed to parse state: %w", err)
 	}
 
-	user, err := c.deps.UsersDb.GetUser(ctx, telegramId)
+	user, err := c.deps.Models.User().GetUser(ctx, telegramId)
 	if err != nil {
 		return fmt.Errorf("failed to get user: %w", err)
 	}
@@ -323,7 +323,7 @@ func (c *client) Auth(ctx context.Context, code string, state string) error {
 		return fmt.Errorf("failed to get oauth token: %w", err)
 	}
 
-	err = c.deps.TokensDb.PutToken(ctx, &tokensdb.Token{TelegramId: telegramId, Token: tok})
+	err = c.deps.Models.Token().PutToken(ctx, &tokensdb.Token{TelegramId: telegramId, Token: tok})
 	if err != nil {
 		return fmt.Errorf("failed to put token: %w", err)
 	}
@@ -332,7 +332,7 @@ func (c *client) Auth(ctx context.Context, code string, state string) error {
 	user.SplitwiseOAuthState = ""
 	user.State = stateReady
 
-	_, err = c.deps.UsersDb.UpdateUser(context.Background(), user)
+	_, err = c.deps.Models.User().UpdateUser(context.Background(), user)
 	if err != nil {
 		return fmt.Errorf("failed to update user: %w", err)
 	}
@@ -357,7 +357,7 @@ func (c *client) start(b *gotgbot.Bot, ctx *ext.Context) error {
 			SplitwiseGroupId: -1,
 			Authorized:       false,
 		}
-		err = c.deps.UsersDb.PutUser(context.Background(), user)
+		err = c.deps.Models.User().PutUser(context.Background(), user)
 		if err != nil {
 			return fmt.Errorf("failed to create user: %w", err)
 		}

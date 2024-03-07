@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -15,52 +14,39 @@ import (
 	"go.uber.org/zap"
 )
 
-type Config struct {
-	Endpoint     string `env:"DB_ENDPOINT"`
-	AwsKeyId     string `env:"DB_AWS_KEY_ID"`
-	AwsSecretKey string `env:"DB_AWS_SECRET_KEY"`
-	TableName    string `env:"USERS_TABLE_NAME"`
+type model struct {
+	db        *dynamodb.Client
+	tableName string
+	log       *zap.SugaredLogger
 }
 
-type client struct {
-	DynamoDbClient *dynamodb.Client
-	TableName      string
-	log            *zap.SugaredLogger
-}
+func NewModel(DB *dynamodb.Client, tableName string) (Model, error) {
+	log := zap.S().With("table", tableName)
 
-func NewClient(cfg Config) (Client, error) {
-	log := zap.S().With("table", cfg.TableName)
+	model := &model{db: DB, tableName: tableName, log: log}
 
-	log.Debug("Creating DynamoDB client")
-	DynamoDbClient := dynamodb.NewFromConfig(
-		aws.Config{
-			Region:      "ru-central1",
-			Credentials: credentials.NewStaticCredentialsProvider(cfg.AwsKeyId, cfg.AwsSecretKey, ""),
-		},
-		func(o *dynamodb.Options) {
-			o.BaseEndpoint = &cfg.Endpoint
-		},
-	)
-	client := &client{DynamoDbClient: DynamoDbClient, TableName: cfg.TableName, log: log}
-	exists, err := client.tableExists()
+	exists, err := model.tableExists()
 	if err != nil {
 		log.Panicw("Failed to check if table exists", zap.Error(err))
 	}
+
 	if !exists {
-		_, err = client.createUserTable()
+		_, err = model.createUserTable()
 		if err != nil {
 			zap.S().Panicw("Failed to create table", zap.Error(err))
 		}
 	}
+
 	log.Debug("Ensured table exists")
-	return client, nil
+
+	return model, nil
 }
 
-func (c *client) tableExists() (bool, error) {
-	log := zap.S().With("table", c.TableName)
+func (m *model) tableExists() (bool, error) {
+	log := zap.S().With("table", m.tableName)
 	exists := true
-	_, err := c.DynamoDbClient.DescribeTable(
-		context.TODO(), &dynamodb.DescribeTableInput{TableName: aws.String(c.TableName)},
+	_, err := m.db.DescribeTable(
+		context.TODO(), &dynamodb.DescribeTableInput{TableName: aws.String(m.tableName)},
 	)
 	if err != nil {
 		var notFoundEx *types.ResourceNotFoundException
@@ -74,11 +60,11 @@ func (c *client) tableExists() (bool, error) {
 	return exists, err
 }
 
-func (c *client) createUserTable() (*types.TableDescription, error) {
-	log := zap.S().With("table", c.TableName)
+func (m *model) createUserTable() (*types.TableDescription, error) {
+	log := zap.S().With("table", m.tableName)
 
 	var tableDesc *types.TableDescription
-	table, err := c.DynamoDbClient.CreateTable(context.TODO(), &dynamodb.CreateTableInput{
+	table, err := m.db.CreateTable(context.TODO(), &dynamodb.CreateTableInput{
 		AttributeDefinitions: []types.AttributeDefinition{{
 			AttributeName: aws.String("telegram_id"),
 			AttributeType: types.ScalarAttributeTypeN,
@@ -87,7 +73,7 @@ func (c *client) createUserTable() (*types.TableDescription, error) {
 			AttributeName: aws.String("telegram_id"),
 			KeyType:       types.KeyTypeHash,
 		}},
-		TableName: aws.String(c.TableName),
+		TableName: aws.String(m.tableName),
 		ProvisionedThroughput: &types.ProvisionedThroughput{
 			ReadCapacityUnits:  aws.Int64(10),
 			WriteCapacityUnits: aws.Int64(10),
@@ -97,9 +83,9 @@ func (c *client) createUserTable() (*types.TableDescription, error) {
 	if err != nil {
 		log.Errorw("Couldn't create table", zap.Error(err))
 	} else {
-		waiter := dynamodb.NewTableExistsWaiter(c.DynamoDbClient)
+		waiter := dynamodb.NewTableExistsWaiter(m.db)
 		err = waiter.Wait(context.TODO(), &dynamodb.DescribeTableInput{
-			TableName: aws.String(c.TableName)}, 5*time.Minute)
+			TableName: aws.String(m.tableName)}, 5*time.Minute)
 		if err != nil {
 			log.Errorw("Wait for table exists failed", zap.Error(err))
 		}
@@ -111,15 +97,15 @@ func (c *client) createUserTable() (*types.TableDescription, error) {
 	return tableDesc, err
 }
 
-func (c *client) PutUser(ctx context.Context, user *User) error {
-	log := c.log.With("user", user)
+func (m *model) PutUser(ctx context.Context, user *User) error {
+	log := m.log.With("user", user)
 	log.Debug("Adding user")
 	item, err := attributevalue.MarshalMap(user)
 	if err != nil {
 		panic(err)
 	}
-	_, err = c.DynamoDbClient.PutItem(ctx, &dynamodb.PutItemInput{
-		TableName: aws.String(c.TableName), Item: item,
+	_, err = m.db.PutItem(ctx, &dynamodb.PutItemInput{
+		TableName: aws.String(m.tableName), Item: item,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to put item: %w", err)
@@ -128,8 +114,8 @@ func (c *client) PutUser(ctx context.Context, user *User) error {
 	return nil
 }
 
-func (c *client) UpdateUser(ctx context.Context, user *User) (map[string]interface{}, error) {
-	log := c.log.With("user", user)
+func (m *model) UpdateUser(ctx context.Context, user *User) (map[string]interface{}, error) {
+	log := m.log.With("user", user)
 	log.Debug("Updating user")
 	var err error
 	var response *dynamodb.UpdateItemOutput
@@ -147,14 +133,14 @@ func (c *client) UpdateUser(ctx context.Context, user *User) (map[string]interfa
 		return nil, fmt.Errorf("failed to build update expression: %w", err)
 	}
 	updateItemInput := dynamodb.UpdateItemInput{
-		TableName:                 aws.String(c.TableName),
+		TableName:                 aws.String(m.tableName),
 		Key:                       user.GetKey(),
 		ExpressionAttributeNames:  expr.Names(),
 		ExpressionAttributeValues: expr.Values(),
 		UpdateExpression:          expr.Update(),
 		ReturnValues:              types.ReturnValueUpdatedNew,
 	}
-	response, err = c.DynamoDbClient.UpdateItem(ctx, &updateItemInput)
+	response, err = m.db.UpdateItem(ctx, &updateItemInput)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update item: %w", err)
 	}
@@ -166,16 +152,16 @@ func (c *client) UpdateUser(ctx context.Context, user *User) (map[string]interfa
 	return attributeMap, nil
 }
 
-func (c *client) GetUser(ctx context.Context, telegramId int64) (*User, error) {
+func (m *model) GetUser(ctx context.Context, telegramId int64) (*User, error) {
 	log := zap.S().With("telegram_id", telegramId)
 	log.Debug("Getting user")
 
 	user := User{TelegramId: telegramId}
 	getItemInput := dynamodb.GetItemInput{
-		Key: user.GetKey(), TableName: aws.String(c.TableName),
+		Key: user.GetKey(), TableName: aws.String(m.tableName),
 	}
 
-	response, err := c.DynamoDbClient.GetItem(ctx, &getItemInput)
+	response, err := m.db.GetItem(ctx, &getItemInput)
 	if err != nil {
 		log.Errorw("Couldn't get info about user", zap.Error(err))
 		return nil, fmt.Errorf("failed to get user from DynamoDB: %w", err)
@@ -196,10 +182,10 @@ func (c *client) GetUser(ctx context.Context, telegramId int64) (*User, error) {
 	return &user, nil
 }
 
-func (c *client) DeleteUser(user User) error {
-	log := c.log.With("telegram_id", user.TelegramId)
-	_, err := c.DynamoDbClient.DeleteItem(context.TODO(), &dynamodb.DeleteItemInput{
-		TableName: aws.String(c.TableName), Key: user.GetKey(),
+func (m *model) DeleteUser(user User) error {
+	log := m.log.With("telegram_id", user.TelegramId)
+	_, err := m.db.DeleteItem(context.TODO(), &dynamodb.DeleteItemInput{
+		TableName: aws.String(m.tableName), Key: user.GetKey(),
 	})
 	if err != nil {
 		log.Errorw("Couldn't delete user from the table", zap.Error(err))
@@ -207,12 +193,12 @@ func (c *client) DeleteUser(user User) error {
 	return err
 }
 
-func (c *client) DeleteTable() error {
-	log := c.log
-	_, err := c.DynamoDbClient.DeleteTable(context.TODO(), &dynamodb.DeleteTableInput{
-		TableName: aws.String(c.TableName)})
+func (m *model) DeleteTable() error {
+	log := m.log
+	_, err := m.db.DeleteTable(context.TODO(), &dynamodb.DeleteTableInput{
+		TableName: aws.String(m.tableName)})
 	if err != nil {
-		log.Errorw("Couldn't delete table", c.TableName, zap.Error(err))
+		log.Errorw("Couldn't delete table", m.tableName, zap.Error(err))
 	}
 	return err
 }
