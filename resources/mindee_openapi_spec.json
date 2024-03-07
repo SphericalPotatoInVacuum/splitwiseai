@@ -1,0 +1,1345 @@
+{
+  "components": {
+    "requestBodies": {
+      "Predict": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/JSONPredict"
+            }
+          },
+          "multipart/form-data": {
+            "schema": {
+              "$ref": "#/components/schemas/FormDataPredict"
+            }
+          }
+        },
+        "required": true
+      }
+    },
+    "responses": {
+      "Error": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          },
+          "multipart/form-data": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        },
+        "description": "Error"
+      },
+      "OK_DOCUMENT": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/SuccessPredictResponse"
+            }
+          },
+          "multipart/form-data": {
+            "schema": {
+              "$ref": "#/components/schemas/SuccessPredictResponse"
+            }
+          }
+        },
+        "description": "OK"
+      }
+    },
+    "schemas": {
+      "Confidence": {
+        "description": "Confidence score",
+        "example": 0.99,
+        "format": "float",
+        "maximum": 1,
+        "minimum": 0,
+        "title": "Confidence",
+        "type": "number"
+      },
+      "ErrorResponse": {
+        "properties": {
+          "api_request": {
+            "description": "Information about your API request",
+            "properties": {
+              "error": {
+                "properties": {
+                  "code": {
+                    "description": "Error code",
+                    "type": "string"
+                  },
+                  "details": {
+                    "description": "Detailed description of the error",
+                    "type": "string"
+                  },
+                  "message": {
+                    "description": "Brief description of the error",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              },
+              "resources": {
+                "example": [],
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "status": {
+                "enum": [
+                  "failure"
+                ],
+                "example": "failure",
+                "type": "string"
+              },
+              "status_code": {
+                "description": "HTTP status code",
+                "type": "integer"
+              },
+              "url": {
+                "example": "https://api.mindee.net/v1",
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "type": "object"
+      },
+      "FormDataPredict": {
+        "properties": {
+          "document": {
+            "format": "binary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "document"
+        ],
+        "type": "object"
+      },
+      "JSONPredict": {
+        "properties": {
+          "document": {
+            "description": "can be a base64 or a HTTPS URL",
+            "example": "<base64 or URL>",
+            "type": "string"
+          }
+        },
+        "required": [
+          "document"
+        ],
+        "type": "object"
+      },
+      "MindeeExpense_Receipts5DocPrediction": {
+        "properties": {
+          "category": {
+            "description": "The purchase category among predefined classes.",
+            "properties": {
+              "confidence": {
+                "$ref": "#/components/schemas/Confidence"
+              },
+              "value": {
+                "enum": [
+                  "toll",
+                  "food",
+                  "parking",
+                  "transport",
+                  "accommodation",
+                  "gasoline",
+                  "telecom",
+                  "miscellaneous"
+                ],
+                "example": "food",
+                "title": "Value",
+                "type": "string"
+              }
+            },
+            "title": "Purchase Category",
+            "type": "object"
+          },
+          "date": {
+            "description": "The date the purchase was made.",
+            "properties": {
+              "confidence": {
+                "$ref": "#/components/schemas/Confidence"
+              },
+              "page_id": {
+                "$ref": "#/components/schemas/PageId"
+              },
+              "polygon": {
+                "$ref": "#/components/schemas/Polygon"
+              },
+              "value": {
+                "description": "Date string in ISO format (YYYY-MM-DD).",
+                "example": "2019-08-25",
+                "format": "date",
+                "title": "ISO Date",
+                "type": "string"
+              }
+            },
+            "title": "Purchase Date",
+            "type": "object"
+          },
+          "document_type": {
+            "description": "One of: 'CREDIT CARD RECEIPT', 'EXPENSE RECEIPT'.",
+            "properties": {
+              "confidence": {
+                "$ref": "#/components/schemas/Confidence"
+              },
+              "value": {
+                "enum": [
+                  "expense_receipt",
+                  "credit_card_receipt"
+                ],
+                "example": "expense_receipt",
+                "title": "Value",
+                "type": "string"
+              }
+            },
+            "title": "Document Type",
+            "type": "object"
+          },
+          "line_items": {
+            "description": "List of line item details.",
+            "items": {
+              "properties": {
+                "confidence": {
+                  "$ref": "#/components/schemas/Confidence"
+                },
+                "description": {
+                  "description": "The item description.",
+                  "example": "string",
+                  "title": "Description",
+                  "type": "string"
+                },
+                "page_id": {
+                  "$ref": "#/components/schemas/PageId"
+                },
+                "polygon": {
+                  "$ref": "#/components/schemas/Polygon"
+                },
+                "quantity": {
+                  "description": "The item quantity.",
+                  "example": 8.875,
+                  "format": "float",
+                  "title": "Quantity",
+                  "type": "number"
+                },
+                "total_amount": {
+                  "description": "The item total amount.",
+                  "example": 8.875,
+                  "format": "float",
+                  "title": "Total Amount",
+                  "type": "number"
+                },
+                "unit_price": {
+                  "description": "The item unit price.",
+                  "example": 8.875,
+                  "format": "float",
+                  "title": "Unit Price",
+                  "type": "number"
+                }
+              },
+              "type": "object"
+            },
+            "title": "Line Items",
+            "type": "array"
+          },
+          "locale": {
+            "description": "The locale detected on the document.",
+            "properties": {
+              "confidence": {
+                "$ref": "#/components/schemas/Confidence"
+              },
+              "country": {
+                "description": "ISO 3166-1 alpha-2 code, works best with CA, CH, DE, ES, FR, GB, IT, NL, PT and US.",
+                "example": "CH",
+                "title": "Country",
+                "type": "string"
+              },
+              "currency": {
+                "description": "The ISO 4217 code of the currency.",
+                "enum": [
+                  "AED",
+                  "ARS",
+                  "AUD",
+                  "BRL",
+                  "CAD",
+                  "CHF",
+                  "CLP",
+                  "CNY",
+                  "COP",
+                  "CZK",
+                  "DKK",
+                  "DZD",
+                  "EUR",
+                  "GBP",
+                  "HKD",
+                  "HUF",
+                  "IDR",
+                  "ILS",
+                  "INR",
+                  "JPY",
+                  "KRW",
+                  "MAD",
+                  "MXN",
+                  "MYR",
+                  "NOK",
+                  "OMR",
+                  "PHP",
+                  "PLN",
+                  "QAR",
+                  "RON",
+                  "RUB",
+                  "SAR",
+                  "SEK",
+                  "SGD",
+                  "THB",
+                  "TND",
+                  "TRY",
+                  "TWD",
+                  "USD",
+                  "VND",
+                  "XAF",
+                  "XOF",
+                  "XPF",
+                  "ZAR",
+                  null
+                ],
+                "example": "CHF",
+                "title": "Currency",
+                "type": "string"
+              },
+              "language": {
+                "description": "The ISO 639-1 code of the language.",
+                "example": "it",
+                "title": "Language",
+                "type": "string"
+              },
+              "value": {
+                "description": "The locale identifier in BCP 47 (RFC 5646) format: ISO language code, '-', ISO country code.",
+                "example": "it-CH",
+                "title": "Value",
+                "type": "string"
+              }
+            },
+            "title": "Expense Locale",
+            "type": "object"
+          },
+          "subcategory": {
+            "description": "The purchase subcategory among predefined classes for transport and food.",
+            "properties": {
+              "confidence": {
+                "$ref": "#/components/schemas/Confidence"
+              },
+              "value": {
+                "enum": [
+                  "plane",
+                  "taxi",
+                  "train",
+                  "restaurant",
+                  "shopping"
+                ],
+                "example": "plane",
+                "title": "Value",
+                "type": "string"
+              }
+            },
+            "title": "Purchase Subcategory",
+            "type": "object"
+          },
+          "supplier_address": {
+            "description": "The address of the supplier or merchant.",
+            "properties": {
+              "confidence": {
+                "$ref": "#/components/schemas/Confidence"
+              },
+              "page_id": {
+                "$ref": "#/components/schemas/PageId"
+              },
+              "polygon": {
+                "$ref": "#/components/schemas/Polygon"
+              },
+              "value": {
+                "description": "The address as a single string.",
+                "example": "string",
+                "title": "Address",
+                "type": "string"
+              }
+            },
+            "title": "Supplier Address",
+            "type": "object"
+          },
+          "supplier_company_registrations": {
+            "description": "List of company registrations associated to the supplier.",
+            "items": {
+              "properties": {
+                "confidence": {
+                  "$ref": "#/components/schemas/Confidence"
+                },
+                "page_id": {
+                  "$ref": "#/components/schemas/PageId"
+                },
+                "polygon": {
+                  "$ref": "#/components/schemas/Polygon"
+                },
+                "type": {
+                  "description": "Generic: VAT NUMBER, TAX ID, COMPANY REGISTRATION NUMBER or country specific: TIN (United States), GST/HST (Canada), SIREN/SIRET (France), UEN (Singapore), STNR (Germany), KVK (NL), CIF (Spain), NIF (Portugal), CVR (Denmark), CF (Italy), DIC (Czech Republic), RFC (Mexico), GSTIN (India) ...etc.",
+                  "example": "VAT NUMBER",
+                  "title": "Type",
+                  "type": "string"
+                },
+                "value": {
+                  "example": "DE999999999",
+                  "title": "Value",
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "title": "Supplier Company Registrations",
+            "type": "array"
+          },
+          "supplier_name": {
+            "description": "The name of the supplier or merchant.",
+            "properties": {
+              "confidence": {
+                "$ref": "#/components/schemas/Confidence"
+              },
+              "page_id": {
+                "$ref": "#/components/schemas/PageId"
+              },
+              "polygon": {
+                "$ref": "#/components/schemas/Polygon"
+              },
+              "raw_value": {
+                "description": "Value as it appears on the document.",
+                "example": null,
+                "title": "Raw Value",
+                "type": "string"
+              },
+              "value": {
+                "description": "Normalized value.",
+                "example": null,
+                "title": "Value",
+                "type": "string"
+              }
+            },
+            "title": "Supplier Name",
+            "type": "object"
+          },
+          "supplier_phone_number": {
+            "description": "The phone number of the supplier or merchant.",
+            "properties": {
+              "confidence": {
+                "$ref": "#/components/schemas/Confidence"
+              },
+              "page_id": {
+                "$ref": "#/components/schemas/PageId"
+              },
+              "polygon": {
+                "$ref": "#/components/schemas/Polygon"
+              },
+              "value": {
+                "description": "The phone number as a single string.",
+                "example": "string",
+                "title": "Phone",
+                "type": "string"
+              }
+            },
+            "title": "Supplier Phone Number",
+            "type": "object"
+          },
+          "taxes": {
+            "description": "List of tax lines information.",
+            "items": {
+              "properties": {
+                "base": {
+                  "description": "The tax base.",
+                  "example": null,
+                  "format": "float",
+                  "title": "Base",
+                  "type": "number"
+                },
+                "code": {
+                  "description": "The tax code.",
+                  "example": null,
+                  "title": "Code",
+                  "type": "string"
+                },
+                "confidence": {
+                  "$ref": "#/components/schemas/Confidence"
+                },
+                "page_id": {
+                  "$ref": "#/components/schemas/PageId"
+                },
+                "polygon": {
+                  "$ref": "#/components/schemas/Polygon"
+                },
+                "rate": {
+                  "description": "The tax rate percentage.",
+                  "example": null,
+                  "format": "float",
+                  "title": "Rate (%)",
+                  "type": "number"
+                },
+                "value": {
+                  "description": "The tax amount.",
+                  "example": null,
+                  "format": "float",
+                  "title": "Amount",
+                  "type": "number"
+                }
+              },
+              "type": "object"
+            },
+            "title": "Taxes",
+            "type": "array"
+          },
+          "time": {
+            "description": "The time the purchase was made.",
+            "properties": {
+              "confidence": {
+                "$ref": "#/components/schemas/Confidence"
+              },
+              "page_id": {
+                "$ref": "#/components/schemas/PageId"
+              },
+              "polygon": {
+                "$ref": "#/components/schemas/Polygon"
+              },
+              "value": {
+                "description": "Time in 24 hours formatting (HH:MM).",
+                "example": "21:51",
+                "title": "Time",
+                "type": "string"
+              }
+            },
+            "title": "Purchase Time",
+            "type": "object"
+          },
+          "tip": {
+            "description": "The total amount of tip and gratuity.",
+            "properties": {
+              "confidence": {
+                "$ref": "#/components/schemas/Confidence"
+              },
+              "page_id": {
+                "$ref": "#/components/schemas/PageId"
+              },
+              "polygon": {
+                "$ref": "#/components/schemas/Polygon"
+              },
+              "value": {
+                "example": 386.35,
+                "format": "float",
+                "title": "Amount",
+                "type": "number"
+              }
+            },
+            "title": "Tip and Gratuity",
+            "type": "object"
+          },
+          "total_amount": {
+            "description": "The total amount paid: includes taxes, discounts, fees, tips, and gratuity.",
+            "properties": {
+              "confidence": {
+                "$ref": "#/components/schemas/Confidence"
+              },
+              "page_id": {
+                "$ref": "#/components/schemas/PageId"
+              },
+              "polygon": {
+                "$ref": "#/components/schemas/Polygon"
+              },
+              "value": {
+                "example": 203.82,
+                "format": "float",
+                "title": "Amount",
+                "type": "number"
+              }
+            },
+            "title": "Total Amount",
+            "type": "object"
+          },
+          "total_net": {
+            "description": "The net amount paid: does not include taxes, fees, and discounts.",
+            "properties": {
+              "confidence": {
+                "$ref": "#/components/schemas/Confidence"
+              },
+              "page_id": {
+                "$ref": "#/components/schemas/PageId"
+              },
+              "polygon": {
+                "$ref": "#/components/schemas/Polygon"
+              },
+              "value": {
+                "example": 505.22,
+                "format": "float",
+                "title": "Amount",
+                "type": "number"
+              }
+            },
+            "title": "Total Net",
+            "type": "object"
+          },
+          "total_tax": {
+            "description": "The total amount of taxes.",
+            "properties": {
+              "confidence": {
+                "$ref": "#/components/schemas/Confidence"
+              },
+              "page_id": {
+                "$ref": "#/components/schemas/PageId"
+              },
+              "polygon": {
+                "$ref": "#/components/schemas/Polygon"
+              },
+              "value": {
+                "example": 557.82,
+                "format": "float",
+                "title": "Amount",
+                "type": "number"
+              }
+            },
+            "title": "Total Tax",
+            "type": "object"
+          }
+        },
+        "type": "object"
+      },
+      "MindeeExpense_Receipts5PagePrediction": {
+        "properties": {
+          "category": {
+            "description": "The purchase category among predefined classes.",
+            "properties": {
+              "confidence": {
+                "$ref": "#/components/schemas/Confidence"
+              },
+              "value": {
+                "enum": [
+                  "toll",
+                  "food",
+                  "parking",
+                  "transport",
+                  "accommodation",
+                  "gasoline",
+                  "telecom",
+                  "miscellaneous"
+                ],
+                "example": "gasoline",
+                "title": "Value",
+                "type": "string"
+              }
+            },
+            "title": "Purchase Category",
+            "type": "object"
+          },
+          "date": {
+            "description": "The date the purchase was made.",
+            "properties": {
+              "confidence": {
+                "$ref": "#/components/schemas/Confidence"
+              },
+              "polygon": {
+                "$ref": "#/components/schemas/Polygon"
+              },
+              "value": {
+                "description": "Date string in ISO format (YYYY-MM-DD).",
+                "example": "2019-08-25",
+                "format": "date",
+                "title": "ISO Date",
+                "type": "string"
+              }
+            },
+            "title": "Purchase Date",
+            "type": "object"
+          },
+          "document_type": {
+            "description": "One of: 'CREDIT CARD RECEIPT', 'EXPENSE RECEIPT'.",
+            "properties": {
+              "confidence": {
+                "$ref": "#/components/schemas/Confidence"
+              },
+              "value": {
+                "enum": [
+                  "expense_receipt",
+                  "credit_card_receipt"
+                ],
+                "example": "expense_receipt",
+                "title": "Value",
+                "type": "string"
+              }
+            },
+            "title": "Document Type",
+            "type": "object"
+          },
+          "line_items": {
+            "description": "List of line item details.",
+            "items": {
+              "properties": {
+                "confidence": {
+                  "$ref": "#/components/schemas/Confidence"
+                },
+                "description": {
+                  "description": "The item description.",
+                  "example": "string",
+                  "title": "Description",
+                  "type": "string"
+                },
+                "polygon": {
+                  "$ref": "#/components/schemas/Polygon"
+                },
+                "quantity": {
+                  "description": "The item quantity.",
+                  "example": 8.875,
+                  "format": "float",
+                  "title": "Quantity",
+                  "type": "number"
+                },
+                "total_amount": {
+                  "description": "The item total amount.",
+                  "example": 8.875,
+                  "format": "float",
+                  "title": "Total Amount",
+                  "type": "number"
+                },
+                "unit_price": {
+                  "description": "The item unit price.",
+                  "example": 8.875,
+                  "format": "float",
+                  "title": "Unit Price",
+                  "type": "number"
+                }
+              },
+              "type": "object"
+            },
+            "title": "Line Items",
+            "type": "array"
+          },
+          "locale": {
+            "description": "The locale detected on the document.",
+            "properties": {
+              "confidence": {
+                "$ref": "#/components/schemas/Confidence"
+              },
+              "country": {
+                "description": "ISO 3166-1 alpha-2 code, works best with CA, CH, DE, ES, FR, GB, IT, NL, PT and US.",
+                "example": "CH",
+                "title": "Country",
+                "type": "string"
+              },
+              "currency": {
+                "description": "The ISO 4217 code of the currency.",
+                "enum": [
+                  "AED",
+                  "ARS",
+                  "AUD",
+                  "BRL",
+                  "CAD",
+                  "CHF",
+                  "CLP",
+                  "CNY",
+                  "COP",
+                  "CZK",
+                  "DKK",
+                  "DZD",
+                  "EUR",
+                  "GBP",
+                  "HKD",
+                  "HUF",
+                  "IDR",
+                  "ILS",
+                  "INR",
+                  "JPY",
+                  "KRW",
+                  "MAD",
+                  "MXN",
+                  "MYR",
+                  "NOK",
+                  "OMR",
+                  "PHP",
+                  "PLN",
+                  "QAR",
+                  "RON",
+                  "RUB",
+                  "SAR",
+                  "SEK",
+                  "SGD",
+                  "THB",
+                  "TND",
+                  "TRY",
+                  "TWD",
+                  "USD",
+                  "VND",
+                  "XAF",
+                  "XOF",
+                  "XPF",
+                  "ZAR",
+                  null
+                ],
+                "example": "CHF",
+                "title": "Currency",
+                "type": "string"
+              },
+              "language": {
+                "description": "The ISO 639-1 code of the language.",
+                "example": "it",
+                "title": "Language",
+                "type": "string"
+              },
+              "value": {
+                "description": "The locale identifier in BCP 47 (RFC 5646) format: ISO language code, '-', ISO country code.",
+                "example": "it-CH",
+                "title": "Value",
+                "type": "string"
+              }
+            },
+            "title": "Expense Locale",
+            "type": "object"
+          },
+          "orientation": {
+            "description": "The clockwise rotation to apply (in degrees) to make the image upright.",
+            "properties": {
+              "confidence": {
+                "$ref": "#/components/schemas/Confidence"
+              },
+              "degrees": {
+                "description": "Degrees as an integer.",
+                "enum": [
+                  0,
+                  90,
+                  270
+                ],
+                "example": 90,
+                "title": "Degrees",
+                "type": "integer"
+              }
+            },
+            "title": "Image Orientation",
+            "type": "object"
+          },
+          "subcategory": {
+            "description": "The purchase subcategory among predefined classes for transport and food.",
+            "properties": {
+              "confidence": {
+                "$ref": "#/components/schemas/Confidence"
+              },
+              "value": {
+                "enum": [
+                  "plane",
+                  "taxi",
+                  "train",
+                  "restaurant",
+                  "shopping"
+                ],
+                "example": "restaurant",
+                "title": "Value",
+                "type": "string"
+              }
+            },
+            "title": "Purchase Subcategory",
+            "type": "object"
+          },
+          "supplier_address": {
+            "description": "The address of the supplier or merchant.",
+            "properties": {
+              "confidence": {
+                "$ref": "#/components/schemas/Confidence"
+              },
+              "polygon": {
+                "$ref": "#/components/schemas/Polygon"
+              },
+              "value": {
+                "description": "The address as a single string.",
+                "example": "string",
+                "title": "Address",
+                "type": "string"
+              }
+            },
+            "title": "Supplier Address",
+            "type": "object"
+          },
+          "supplier_company_registrations": {
+            "description": "List of company registrations associated to the supplier.",
+            "items": {
+              "properties": {
+                "confidence": {
+                  "$ref": "#/components/schemas/Confidence"
+                },
+                "polygon": {
+                  "$ref": "#/components/schemas/Polygon"
+                },
+                "type": {
+                  "description": "Generic: VAT NUMBER, TAX ID, COMPANY REGISTRATION NUMBER or country specific: TIN (United States), GST/HST (Canada), SIREN/SIRET (France), UEN (Singapore), STNR (Germany), KVK (NL), CIF (Spain), NIF (Portugal), CVR (Denmark), CF (Italy), DIC (Czech Republic), RFC (Mexico), GSTIN (India) ...etc.",
+                  "example": "VAT NUMBER",
+                  "title": "Type",
+                  "type": "string"
+                },
+                "value": {
+                  "example": "DE999999999",
+                  "title": "Value",
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "title": "Supplier Company Registrations",
+            "type": "array"
+          },
+          "supplier_name": {
+            "description": "The name of the supplier or merchant.",
+            "properties": {
+              "confidence": {
+                "$ref": "#/components/schemas/Confidence"
+              },
+              "polygon": {
+                "$ref": "#/components/schemas/Polygon"
+              },
+              "raw_value": {
+                "description": "Value as it appears on the document.",
+                "example": null,
+                "title": "Raw Value",
+                "type": "string"
+              },
+              "value": {
+                "description": "Normalized value.",
+                "example": null,
+                "title": "Value",
+                "type": "string"
+              }
+            },
+            "title": "Supplier Name",
+            "type": "object"
+          },
+          "supplier_phone_number": {
+            "description": "The phone number of the supplier or merchant.",
+            "properties": {
+              "confidence": {
+                "$ref": "#/components/schemas/Confidence"
+              },
+              "polygon": {
+                "$ref": "#/components/schemas/Polygon"
+              },
+              "value": {
+                "description": "The phone number as a single string.",
+                "example": "string",
+                "title": "Phone",
+                "type": "string"
+              }
+            },
+            "title": "Supplier Phone Number",
+            "type": "object"
+          },
+          "taxes": {
+            "description": "List of tax lines information.",
+            "items": {
+              "properties": {
+                "base": {
+                  "description": "The tax base.",
+                  "example": null,
+                  "format": "float",
+                  "title": "Base",
+                  "type": "number"
+                },
+                "code": {
+                  "description": "The tax code.",
+                  "example": null,
+                  "title": "Code",
+                  "type": "string"
+                },
+                "confidence": {
+                  "$ref": "#/components/schemas/Confidence"
+                },
+                "polygon": {
+                  "$ref": "#/components/schemas/Polygon"
+                },
+                "rate": {
+                  "description": "The tax rate percentage.",
+                  "example": null,
+                  "format": "float",
+                  "title": "Rate (%)",
+                  "type": "number"
+                },
+                "value": {
+                  "description": "The tax amount.",
+                  "example": null,
+                  "format": "float",
+                  "title": "Amount",
+                  "type": "number"
+                }
+              },
+              "type": "object"
+            },
+            "title": "Taxes",
+            "type": "array"
+          },
+          "time": {
+            "description": "The time the purchase was made.",
+            "properties": {
+              "confidence": {
+                "$ref": "#/components/schemas/Confidence"
+              },
+              "polygon": {
+                "$ref": "#/components/schemas/Polygon"
+              },
+              "value": {
+                "description": "Time in 24 hours formatting (HH:MM).",
+                "example": "21:51",
+                "title": "Time",
+                "type": "string"
+              }
+            },
+            "title": "Purchase Time",
+            "type": "object"
+          },
+          "tip": {
+            "description": "The total amount of tip and gratuity.",
+            "properties": {
+              "confidence": {
+                "$ref": "#/components/schemas/Confidence"
+              },
+              "polygon": {
+                "$ref": "#/components/schemas/Polygon"
+              },
+              "value": {
+                "example": 435.97,
+                "format": "float",
+                "title": "Amount",
+                "type": "number"
+              }
+            },
+            "title": "Tip and Gratuity",
+            "type": "object"
+          },
+          "total_amount": {
+            "description": "The total amount paid: includes taxes, discounts, fees, tips, and gratuity.",
+            "properties": {
+              "confidence": {
+                "$ref": "#/components/schemas/Confidence"
+              },
+              "polygon": {
+                "$ref": "#/components/schemas/Polygon"
+              },
+              "value": {
+                "example": 231.3,
+                "format": "float",
+                "title": "Amount",
+                "type": "number"
+              }
+            },
+            "title": "Total Amount",
+            "type": "object"
+          },
+          "total_net": {
+            "description": "The net amount paid: does not include taxes, fees, and discounts.",
+            "properties": {
+              "confidence": {
+                "$ref": "#/components/schemas/Confidence"
+              },
+              "polygon": {
+                "$ref": "#/components/schemas/Polygon"
+              },
+              "value": {
+                "example": 41.51,
+                "format": "float",
+                "title": "Amount",
+                "type": "number"
+              }
+            },
+            "title": "Total Net",
+            "type": "object"
+          },
+          "total_tax": {
+            "description": "The total amount of taxes.",
+            "properties": {
+              "confidence": {
+                "$ref": "#/components/schemas/Confidence"
+              },
+              "polygon": {
+                "$ref": "#/components/schemas/Polygon"
+              },
+              "value": {
+                "example": 856.71,
+                "format": "float",
+                "title": "Amount",
+                "type": "number"
+              }
+            },
+            "title": "Total Tax",
+            "type": "object"
+          }
+        },
+        "type": "object"
+      },
+      "PageId": {
+        "description": "The document page on which the information was found.",
+        "example": 0,
+        "minimum": 0,
+        "title": "Page ID",
+        "type": "integer"
+      },
+      "Point": {
+        "description": "Point using (X, Y) coordinates",
+        "example": [
+          0.0912,
+          0.463
+        ],
+        "items": {
+          "format": "float",
+          "type": "number"
+        },
+        "maxItems": 2,
+        "title": "Point",
+        "type": "array"
+      },
+      "Polygon": {
+        "description": "Polygon using a sequence of (X, Y) coordinates",
+        "items": {
+          "$ref": "#/components/schemas/Point"
+        },
+        "title": "Polygon",
+        "type": "array"
+      },
+      "SuccessPredictResponse": {
+        "properties": {
+          "api_request": {
+            "description": "Information about your API request",
+            "properties": {
+              "error": {
+                "example": {},
+                "type": "object"
+              },
+              "resources": {
+                "example": [
+                  "document"
+                ],
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "status": {
+                "enum": [
+                  "success"
+                ],
+                "example": "success",
+                "type": "string"
+              },
+              "status_code": {
+                "description": "HTTP status code",
+                "example": 201,
+                "maximum": 399,
+                "minimum": 200,
+                "type": "integer"
+              },
+              "url": {
+                "example": "https://api.mindee.net/v1/products/mindee/expense_receipts/v5/predict",
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "document": {
+            "properties": {
+              "annotations": {
+                "example": {
+                  "labels": []
+                },
+                "type": "object"
+              },
+              "id": {
+                "description": "Document identifier, generated on each API call",
+                "example": "f01a0068-0542-4520-a0f6-4c067891f393",
+                "format": "uuid",
+                "type": "string"
+              },
+              "inference": {
+                "properties": {
+                  "extras": {
+                    "example": {},
+                    "type": "object"
+                  },
+                  "finished_at": {
+                    "example": "2024-01-03T17:55:48+00:00",
+                    "type": "string"
+                  },
+                  "pages": {
+                    "items": {
+                      "properties": {
+                        "extras": {
+                          "example": {},
+                          "type": "object"
+                        },
+                        "id": {
+                          "example": 0,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "prediction": {
+                          "$ref": "#/components/schemas/MindeeExpense_Receipts5PagePrediction"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "prediction": {
+                    "$ref": "#/components/schemas/MindeeExpense_Receipts5DocPrediction"
+                  },
+                  "processing_time": {
+                    "example": 1.954,
+                    "type": "number"
+                  },
+                  "product": {
+                    "properties": {
+                      "features": {
+                        "example": [
+                          "locale",
+                          "category",
+                          "subcategory",
+                          "document_type",
+                          "date",
+                          "time",
+                          "total_amount",
+                          "total_net",
+                          "total_tax",
+                          "tip",
+                          "taxes",
+                          "supplier_name",
+                          "supplier_company_registrations",
+                          "supplier_address",
+                          "supplier_phone_number",
+                          "orientation",
+                          "line_items"
+                        ],
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "name": {
+                        "example": "mindee/Expense Receipt",
+                        "type": "string"
+                      },
+                      "version": {
+                        "example": "5.1",
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "started_at": {
+                    "example": "2024-01-03T17:55:46+00:00",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              },
+              "n_pages": {
+                "description": "Number of pages in the document",
+                "example": 1,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "name": {
+                "description": "Name of the document",
+                "example": "myfile.jpg",
+                "type": "string"
+              },
+              "ocr": {
+                "example": {},
+                "type": "object"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "apiKey": {
+        "description": "Token <your_api_key>",
+        "in": "header",
+        "name": "Authorization",
+        "type": "apiKey"
+      }
+    }
+  },
+  "info": {
+    "description": "Expense Receipt endpoints",
+    "title": "Expense Receipt",
+    "version": "5.1"
+  },
+  "openapi": "3.0.3",
+  "paths": {
+    "/products/mindee/expense_receipts/{version}/predict": {
+      "post": {
+        "description": "Extract your fields from a document",
+        "parameters": [
+          {
+            "description": "API version",
+            "in": "path",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "enum": [
+                "v5"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/Predict"
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/OK_DOCUMENT"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "504": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "summary": "Synchronous Prediction endpoint",
+        "tags": [
+          "Predict"
+        ]
+      }
+    }
+  },
+  "security": [
+    {
+      "apiKey": []
+    }
+  ],
+  "servers": [
+    {
+      "url": "https://api.mindee.net/v1"
+    }
+  ]
+}
