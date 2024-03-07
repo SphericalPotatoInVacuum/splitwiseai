@@ -6,10 +6,12 @@ import (
 
 	splitwiseApi "github.com/aanzolaavila/splitwise.go"
 	"github.com/aanzolaavila/splitwise.go/resources"
+	"go.uber.org/zap"
 	"golang.org/x/oauth2"
 )
 
 type Config struct {
+	Enabled      bool   `env:"SPLITWISE_ENABLED" envDefault:"false"`
 	ClientId     string `env:"SPLITWISE_CLIENT_ID"`
 	ClientSecret string `env:"SPLITWISE_CLIENT_SECRET"`
 	RedirectURL  string `env:"SPLITWISE_REDIRECT_URL"`
@@ -65,6 +67,12 @@ func (c *client) GetInstance(key int64) (Instance, bool) {
 }
 
 func NewClient(cfg Config) (Client, error) {
+	if !cfg.Enabled {
+		return nil, nil
+	}
+
+	zap.S().Debug("Creating Splitwise client")
+
 	return &client{
 		instances: map[int64]*instance{},
 		oauthConf: &oauth2.Config{

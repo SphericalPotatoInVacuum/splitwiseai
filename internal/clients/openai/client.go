@@ -16,6 +16,7 @@ import (
 )
 
 type Config struct {
+	Enabled        bool   `env:"OAI_ENABLED" envDefault:"false"`
 	ApiToken       string `env:"OAI_API_TOKEN"`
 	ApiEndpoint    string `env:"OAI_API_ENDPOINT"`
 	WhisperModelId string `env:"OAI_WHISPER_MODEL_ID"`
@@ -27,6 +28,11 @@ type client struct {
 }
 
 func NewClient(cfg Config) (Client, error) {
+	if !cfg.Enabled {
+		zap.S().Debug("OpenAI client is disabled")
+		return nil, nil
+	}
+
 	zap.S().Debug("Creating OpenAI client")
 	keyCredential := azcore.NewKeyCredential(cfg.ApiToken)
 

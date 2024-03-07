@@ -1,4 +1,9 @@
-package main
+package ext
+
+type SplitwiseCallback struct {
+	Code  string `json:"code"`
+	State string `json:"state"`
+}
 
 // Структура запроса API Gateway v1
 type APIGatewayRequest struct {

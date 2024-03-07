@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
+	"github.com/aws/aws-sdk-go-v2/service/sqs/types"
 	"go.uber.org/zap"
 )
 
@@ -17,6 +18,7 @@ type client struct {
 }
 
 type Config struct {
+	Enabled      bool   `env:"TG_UPDATES_MQ_ENABLED" envDefault:"false"`
 	Endpoint     string `env:"TG_UPDATES_MQ_ENDPOINT"`
 	QueueUrl     string `env:"TG_UPDATES_MQ_QUEUE_URL"`
 	AwsKeyId     string `env:"DB_AWS_KEY_ID"`
@@ -24,6 +26,11 @@ type Config struct {
 }
 
 func NewClient(cfg Config) (*client, error) {
+	if !cfg.Enabled {
+		zap.S().Debug("TG updates MQ client is disabled")
+		return nil, nil
+	}
+
 	zap.S().Debugw("Creating SQS client", "config", cfg)
 
 	awsCfg, err := config.LoadDefaultConfig(
@@ -51,10 +58,18 @@ func NewClient(cfg Config) (*client, error) {
 	}, nil
 }
 
-func (c *client) PublishMessage(ctx context.Context, message string) error {
+func (c *client) PublishMessage(ctx context.Context, message string, attributes map[string]string) error {
+	messageAttributes := make(map[string]types.MessageAttributeValue)
+	for k, v := range attributes {
+		messageAttributes[k] = types.MessageAttributeValue{
+			DataType:    aws.String("String"),
+			StringValue: &v,
+		}
+	}
 	output, err := c.svc.SendMessage(ctx, &sqs.SendMessageInput{
-		MessageBody: &message,
-		QueueUrl:    &c.queueUrl,
+		MessageBody:       &message,
+		QueueUrl:          &c.queueUrl,
+		MessageAttributes: messageAttributes,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to send message: %w", err)

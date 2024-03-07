@@ -3,21 +3,15 @@ package clients
 import (
 	"fmt"
 
-	"github.com/SphericalPotatoInVacuum/splitwiseai/internal/clients/db"
 	"github.com/SphericalPotatoInVacuum/splitwiseai/internal/clients/mq/tgupdatesmq"
 	"github.com/SphericalPotatoInVacuum/splitwiseai/internal/clients/ocr"
 	"github.com/SphericalPotatoInVacuum/splitwiseai/internal/clients/openai"
 	"github.com/SphericalPotatoInVacuum/splitwiseai/internal/clients/splitwise"
-	"github.com/SphericalPotatoInVacuum/splitwiseai/internal/clients/telegram"
-	"github.com/SphericalPotatoInVacuum/splitwiseai/internal/models"
 )
 
 type Config struct {
 	MindeeCfg            ocr.Config
 	SplitwiseCfg         splitwise.Config
-	DBCfg                db.Config
-	ModelsCfg            models.Config
-	TelegramCfg          telegram.Config
 	OpenAICfg            openai.Config
 	TelegramUpdatesMQCfg tgupdatesmq.Config
 
@@ -26,7 +20,8 @@ type Config struct {
 
 type clients struct {
 	oai         openai.Client
-	telegram    telegram.Client
+	ocr         ocr.Client
+	splitwise   splitwise.Client
 	tgUpdatesMQ tgupdatesmq.Client
 }
 
@@ -34,13 +29,6 @@ func NewClients(cfg Config) (Clients, error) {
 	splitwiseClient, err := splitwise.NewClient(cfg.SplitwiseCfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create splitwise client: %w", err)
-	}
-
-	db := db.NewClient(cfg.DBCfg)
-
-	ms, err := models.NewModels(db, cfg.ModelsCfg)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create models: %w", err)
 	}
 
 	oaiClient, err := openai.NewClient(cfg.OpenAICfg)
@@ -56,18 +44,8 @@ func NewClients(cfg Config) (Clients, error) {
 		}
 	} else if cfg.OcrClient == "gpt" {
 		mindeeClient = oaiClient
-	} else {
+	} else if cfg.MindeeCfg.Enabled {
 		return nil, fmt.Errorf("invalid OCR client: %s", cfg.OcrClient)
-	}
-
-	telegramClient, err := telegram.NewClient(cfg.TelegramCfg, &telegram.BotDeps{
-		Models:    ms,
-		Splitwise: splitwiseClient,
-		Ocr:       mindeeClient,
-		OpenAI:    oaiClient,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create telegram client: %w", err)
 	}
 
 	tgUpdatesMQClient, err := tgupdatesmq.NewClient(cfg.TelegramUpdatesMQCfg)
@@ -76,18 +54,23 @@ func NewClients(cfg Config) (Clients, error) {
 	}
 
 	return &clients{
-		telegram:    telegramClient,
 		oai:         oaiClient,
+		ocr:         mindeeClient,
+		splitwise:   splitwiseClient,
 		tgUpdatesMQ: tgUpdatesMQClient,
 	}, nil
 }
 
-func (c *clients) Telegram() telegram.Client {
-	return c.telegram
-}
-
 func (c *clients) OpenAI() openai.Client {
 	return c.oai
+}
+
+func (c *clients) OCR() ocr.Client {
+	return c.ocr
+}
+
+func (c *clients) Splitwise() splitwise.Client {
+	return c.splitwise
 }
 
 func (c *clients) TgUpdatesMQ() tgupdatesmq.Client {

@@ -13,7 +13,8 @@ import (
 )
 
 type Config struct {
-	APIKey string `env:"MINDEE_API_TOKEN"`
+	Enabled bool   `env:"MINDEE_ENABLED" envDefault:"false"`
+	APIKey  string `env:"MINDEE_API_TOKEN"`
 }
 
 type client struct {
@@ -23,6 +24,13 @@ type client struct {
 var _ Client = (*client)(nil)
 
 func NewClient(cfg Config) (Client, error) {
+	if !cfg.Enabled {
+		zap.S().Debug("Mindee client is disabled")
+		return nil, nil
+	}
+
+	zap.S().Debug("Creating Mindee client")
+
 	mindeeClient, err := mindeeapi.NewClientWithResponses(
 		"https://api.mindee.net/v1/",
 		mindeeapi.WithRequestEditorFn(func(ctx context.Context, req *http.Request) error {
