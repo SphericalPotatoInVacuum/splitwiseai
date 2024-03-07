@@ -23,7 +23,7 @@ resource "yandex_resourcemanager_folder_iam_binding" "tgbot_sa" {
   ]
 }
 
-resource "yandex_iam_service_account_static_access_key" "tgbot_sa_static_key_secret" {
+resource "yandex_iam_service_account_static_access_key" "tgbot_sa_static_key" {
   service_account_id = yandex_iam_service_account.tgbot_sa.id
   description        = "Key for Splitwise Telegram bot"
 }
@@ -37,11 +37,11 @@ resource "yandex_lockbox_secret_version" "tgbot_sa_static_key_secret_version" {
   secret_id = yandex_lockbox_secret.tgbot_sa_static_key_secret.id
   entries {
     key        = "ACCESS_KEY_ID"
-    text_value = yandex_iam_service_account_static_access_key.tgbot_sa_static_key_secret.access_key
+    text_value = yandex_iam_service_account_static_access_key.tgbot_sa_static_key.access_key
   }
   entries {
     key        = "SECRET_ACCESS_KEY"
-    text_value = yandex_iam_service_account_static_access_key.tgbot_sa_static_key_secret.secret_key
+    text_value = yandex_iam_service_account_static_access_key.tgbot_sa_static_key.secret_key
   }
 }
 

@@ -7,8 +7,6 @@ resource "yandex_function" "tg_update_handler" {
   execution_timeout  = "10"
   service_account_id = yandex_iam_service_account.tgbot_sa.id
   environment = {
-    "DB_AWS_KEY_ID"           = yandex_iam_service_account_static_access_key.tgbot_sa_static_key_secret.access_key
-    "DB_AWS_SECRET_KEY"       = yandex_iam_service_account_static_access_key.tgbot_sa_static_key_secret.secret_key
     "DB_ENDPOINT"             = yandex_ydb_database_serverless.ydb_serverless_prod.document_api_endpoint
     "OAI_API_ENDPOINT"        = "https://api.openai.com/v1/"
     "OAI_WHISPER_MODEL_ID"    = "whisper-1"
@@ -19,6 +17,18 @@ resource "yandex_function" "tg_update_handler" {
     "WEB_APP_URL"             = "https://splitwiseai.sphericalpotatoinvacuum.xyz/webapp"
     "TG_UPDATES_MQ_ENDPOINT"  = "https://message-queue.api.cloud.yandex.net/"
     "TG_UPDATES_MQ_QUEUE_URL" = yandex_message_queue.telegram_updates_queue.id
+  }
+  secrets {
+    environment_variable = "DB_AWS_KEY_ID"
+    id                   = yandex_lockbox_secret.tgbot_sa_static_key_secret.id
+    version_id           = yandex_lockbox_secret_version.tgbot_sa_static_key_secret_version.id
+    key                  = "ACCESS_KEY_ID"
+  }
+  secrets {
+    environment_variable = "DB_AWS_SECRET_KEY"
+    id                   = yandex_lockbox_secret.tgbot_sa_static_key_secret.id
+    version_id           = yandex_lockbox_secret_version.tgbot_sa_static_key_secret_version.id
+    key                  = "SECRET_ACCESS_KEY"
   }
   secrets {
     environment_variable = "MINDEE_API_TOKEN"
@@ -70,8 +80,6 @@ resource "yandex_function" "splitwise_oauth" {
   execution_timeout  = "30"
   service_account_id = yandex_iam_service_account.tgbot_sa.id
   environment = {
-    "DB_AWS_KEY_ID"          = yandex_iam_service_account_static_access_key.tgbot_sa_static_key_secret.access_key
-    "DB_AWS_SECRET_KEY"      = yandex_iam_service_account_static_access_key.tgbot_sa_static_key_secret.secret_key
     "DB_ENDPOINT"            = yandex_ydb_database_serverless.ydb_serverless_prod.document_api_endpoint
     "OAI_API_ENDPOINT"       = "https://api.openai.com/v1/"
     "OAI_WHISPER_MODEL_ID"   = "whisper-1"
@@ -80,6 +88,18 @@ resource "yandex_function" "splitwise_oauth" {
     "USERS_TABLE_NAME"       = "users"
     "SPLITWISE_REDIRECT_URL" = "https://splitwiseai.sphericalpotatoinvacuum.xyz/splitwise"
     "WEB_APP_URL"            = "https://splitwiseai.sphericalpotatoinvacuum.xyz/webapp"
+  }
+  secrets {
+    environment_variable = "DB_AWS_KEY_ID"
+    id                   = yandex_lockbox_secret.tgbot_sa_static_key_secret.id
+    version_id           = yandex_lockbox_secret_version.tgbot_sa_static_key_secret_version.id
+    key                  = "ACCESS_KEY_ID"
+  }
+  secrets {
+    environment_variable = "DB_AWS_SECRET_KEY"
+    id                   = yandex_lockbox_secret.tgbot_sa_static_key_secret.id
+    version_id           = yandex_lockbox_secret_version.tgbot_sa_static_key_secret_version.id
+    key                  = "SECRET_ACCESS_KEY"
   }
   secrets {
     environment_variable = "MINDEE_API_TOKEN"
@@ -132,8 +152,6 @@ resource "yandex_function" "tg_update_processor" {
   service_account_id = yandex_iam_service_account.tgbot_sa.id
 
   environment = {
-    "DB_AWS_KEY_ID"          = yandex_iam_service_account_static_access_key.tgbot_sa_static_key_secret.access_key
-    "DB_AWS_SECRET_KEY"      = yandex_iam_service_account_static_access_key.tgbot_sa_static_key_secret.secret_key
     "DB_ENDPOINT"            = yandex_ydb_database_serverless.ydb_serverless_prod.document_api_endpoint
     "OAI_API_ENDPOINT"       = "https://api.openai.com/v1/"
     "OAI_WHISPER_MODEL_ID"   = "whisper-1"
@@ -142,6 +160,18 @@ resource "yandex_function" "tg_update_processor" {
     "USERS_TABLE_NAME"       = "users"
     "SPLITWISE_REDIRECT_URL" = "https://splitwiseai.sphericalpotatoinvacuum.xyz/splitwise"
     "WEB_APP_URL"            = "https://splitwiseai.sphericalpotatoinvacuum.xyz/webapp"
+  }
+  secrets {
+    environment_variable = "DB_AWS_KEY_ID"
+    id                   = yandex_lockbox_secret.tgbot_sa_static_key_secret.id
+    version_id           = yandex_lockbox_secret_version.tgbot_sa_static_key_secret_version.id
+    key                  = "ACCESS_KEY_ID"
+  }
+  secrets {
+    environment_variable = "DB_AWS_SECRET_KEY"
+    id                   = yandex_lockbox_secret.tgbot_sa_static_key_secret.id
+    version_id           = yandex_lockbox_secret_version.tgbot_sa_static_key_secret_version.id
+    key                  = "SECRET_ACCESS_KEY"
   }
   secrets {
     environment_variable = "MINDEE_API_TOKEN"
