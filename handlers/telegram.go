@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"time"
 
 	"github.com/PaulSonOfLars/gotgbot/v2"
 	"github.com/SphericalPotatoInVacuum/splitwiseai/handlers/ext"
@@ -12,9 +11,6 @@ import (
 
 func HandleTelegramUpdateMessage(ctx context.Context, event Event) (string, error) {
 	deps := ext.Init()
-
-	zap.S().Debug("Sleeping for 2 minutes")
-	time.Sleep(2 * time.Minute)
 
 	for _, message := range event.Messages {
 		update := &gotgbot.Update{}
